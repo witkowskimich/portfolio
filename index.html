@@ -55,7 +55,8 @@
   
   
   
-  #stage { position: absolute; left: 0; top: 0; width: 1366px; height: 768px; transform-origin: 0 0; }
+  #stage, #stageB { position: absolute; left: 0; top: 0; width: 1366px; height: 768px; transform-origin: 0 0; }
+  #stageB { z-index: 1; } #stage { z-index: 3; pointer-events: none; } #stage a { pointer-events: auto; }
   .slide { position: absolute; left: 30px; top: 110px; width: 900px; height: 502px; object-fit: contain;
            user-select: none; -webkit-user-drag: none; pointer-events: none; }
   .txt { position: absolute; left: 708px; width: 600px; top: 272px; text-align: right; }
@@ -66,14 +67,14 @@
          padding: 11px 22px; border-radius: 999px; text-decoration: none; position: relative; z-index: 3; }
   .cta:hover { background: #088a83; }
   #fx { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 2; }
-  #hero.portrait #stage { width: 768px; height: 1300px; }
+  #hero.portrait #stage, #hero.portrait #stageB { width: 768px; height: 1300px; }
   #hero.portrait .slide { left: -40px; top: 40px; width: 848px; height: 474px; }
   #hero.portrait .txt { left: 48px; width: 672px; top: 560px; text-align: left; }
   #hero.portrait .label { font-size: 26px; } #hero.portrait h1 { font-size: 110px; }
   #hero.portrait .sub { font-size: 32px; width: auto; margin-left: 0; } #hero.portrait .cta { font-size: 32px; padding: 20px 40px; }
 </style>
-<section id="hero"><div id="stage">
-  <img class="slide" src="https://witkowskimich.my.canva.site/_assets/media/b94ebc0692b602397f5910befa52e20c.png" alt="Różowa zjeżdżalnia wodna – model 3D, Michał Witkowski">
+<section id="hero"><div id="stageB"><img class="slide" src="img/hero.webp" alt="Różowa zjeżdżalnia wodna – model 3D, Michał Witkowski"></div><div id="stage">
+
   <div class="txt">
     <p class="label">GRAFIK 3D · WARSZAWA</p>
     <h1 class="hname">Michał<br>Witkowski</h1>
@@ -85,7 +86,7 @@
 <canvas id="fx"></canvas></section>
 <script>
 (() => {
-  const hero = document.getElementById('hero'); const stage = document.getElementById('stage');
+  const hero = document.getElementById('hero'); const stage = document.getElementById('stage'); const stageB = document.getElementById('stageB'); const slideImg = stageB.querySelector('img');
   const cv = document.getElementById('fx');
   let W = 0, H = 0, DPR = 1;
 
@@ -95,37 +96,100 @@
     hero.classList.toggle('portrait', portrait);
     const bw = portrait ? 768 : 1366, bh = portrait ? 1300 : 768;
     const s = Math.min(W / bw, H / bh);
-    stage.style.transform = `translate(${(W - bw * s) / 2}px, ${(H - bh * s) / 2}px) scale(${s})`;
+    stage.style.transform = stageB.style.transform = `translate(${(W - bw * s) / 2}px, ${(H - bh * s) / 2}px) scale(${s})`;
+    sceneDirty = true;
     DPR = Math.min(devicePixelRatio || 1, 1.75);
     cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
 
   }
 
   // ---------- WebGL: realistyczna błonka mydlana (interferencja cienkiej warstwy) ----------
-  const ctx = cv.getContext('2d');
-  const gl = null;
-  const MAXB = 60;
-  // realistyczne bańki wyrenderowane w Blenderze (odbicia, błonka z kolorowym szumem, odblaski)
-  const SPR = [], SPRB = [];
-  const base = (document.currentScript && document.currentScript.dataset.base) || 'sprites/';
-  for (let i = 0; i < 3; i++) {
-    const im = new Image(); im.src = base + 'bubble' + i + '.webp';
-    im.onload = () => {
-      SPR[i] = im;
-      // wersja rozmyta (tło) przygotowana raz
-      const c = document.createElement('canvas'); c.width = c.height = 256;
-      const x = c.getContext('2d'); x.filter = 'blur(2.5px)'; x.drawImage(im, 24, 24, 208, 208); SPRB[i] = c;
-    };
+  // WebGL: prawdziwa refrakcja tła i zjeżdżalni przez bańkę + szklana bańka (sprite) na wierzchu
+  const gl = cv.getContext('webgl', { premultipliedAlpha: true, alpha: true, antialias: false });
+  const MAXB = 40;
+  let sceneDirty = true;
+  const scene = document.createElement('canvas'); const sctx = scene.getContext('2d');
+  const sprite = new Image(); sprite.src = 'sprites/bubbles.webp';
+  const VS = `attribute vec2 p; void main(){ gl_Position = vec4(p,0.,1.); }`;
+  const FS = `
+  precision highp float;
+  uniform vec2 res; uniform float time; uniform int count;
+  uniform sampler2D scene; uniform sampler2D spr;
+  uniform vec4 bub[${MAXB}];   // x, y, r (px), alpha
+  uniform vec4 bub2[${MAXB}];  // squashX, squashY, blur(0..1), rot
+  void main(){
+    vec2 fc = vec2(gl_FragCoord.x, res.y - gl_FragCoord.y);
+    vec4 acc = vec4(0.);
+    for (int i=0;i<${MAXB};i++){
+      if (i>=count) break;
+      vec4 b = bub[i]; vec4 b2 = bub2[i];
+      vec2 d = (fc - b.xy) / (b.z * b2.xy);
+      float r = length(d);
+      if (r > 1.25) continue;
+      float bl = b2.z;
+      vec4 col = vec4(0.);
+      if (r < 1.) {
+        // refrakcja: pod bańką widać przesunięte tło; przy krawędzi obraz jest ściśnięty i odwrócony (soczewka)
+        float z = sqrt(max(0., 1. - r*r));
+        float k = 1. - z;
+        vec2 off = -d * b.z * (0.04 + 1.25 * k * k * k);
+        vec2 base = fc + off;
+        float ca = 0.03 * b.z * k * k;
+        vec3 sc;
+        sc.r = texture2D(scene, (base - d * ca) / res).r;
+        sc.g = texture2D(scene, base / res).g;
+        sc.b = texture2D(scene, (base + d * ca) / res).b;
+        // przy krawędzi mniej światła przechodzi (fresnel) -> tło widziane przez bańkę ciemnieje
+        sc *= 1. - 0.28 * smoothstep(.80, 1.0, r);
+        float edgeAA = 1. - smoothstep(1. - 1.5 / b.z, 1., r);
+        col = vec4(sc, 1.) * edgeAA * (1. - bl);
+      }
+      // wyrenderowana bańka (odbicia, błonka, odblaski z poświatą) – jeden z 3 wariantów z atlasu
+      vec2 uv = d * 0.4 + 0.5;
+      vec4 sp = vec4(0.);
+      if (uv.x > 0. && uv.y > 0. && uv.x < 1. && uv.y < 1.) sp = texture2D(spr, vec2((uv.x + b2.w) / 3., uv.y));
+      if (bl > .01) sp *= .8;
+      col = sp + col * (1. - sp.a);
+      col *= b.w;
+      acc = col + acc * (1. - col.a);
+    }
+    gl_FragColor = acc;
+  }`;
+  let prog, uRes, uTime, uCount, uB, uB2, texScene, texSpr;
+  if (gl) {
+    const sh = (t, src) => { const o = gl.createShader(t); gl.shaderSource(o, src); gl.compileShader(o); if (!gl.getShaderParameter(o, gl.COMPILE_STATUS)) console.error(gl.getShaderInfoLog(o)); return o; };
+    prog = gl.createProgram(); gl.attachShader(prog, sh(gl.VERTEX_SHADER, VS)); gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, FS)); gl.linkProgram(prog); gl.useProgram(prog);
+    const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
+    const loc = gl.getAttribLocation(prog, 'p'); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+    uRes = gl.getUniformLocation(prog, 'res'); uTime = gl.getUniformLocation(prog, 'time'); uCount = gl.getUniformLocation(prog, 'count');
+    uB = gl.getUniformLocation(prog, 'bub'); uB2 = gl.getUniformLocation(prog, 'bub2');
+    const mk = (unit) => { const t = gl.createTexture(); gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, t);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE); return t; };
+    texScene = mk(0); texSpr = mk(1);
+    gl.uniform1i(gl.getUniformLocation(prog, 'scene'), 0); gl.uniform1i(gl.getUniformLocation(prog, 'spr'), 1);
+    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
+    sprite.onload = () => { gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, texSpr); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, sprite); };
+    slideImg.addEventListener('load', () => { sceneDirty = true; });
+    gl.clearColor(0, 0, 0, 0);
   }
-  // błysk-gwiazdka (glare)
-  const STAR = document.createElement('canvas'); STAR.width = STAR.height = 128;
-  (() => { const x = STAR.getContext('2d'); const g = x.createRadialGradient(64, 64, 0, 64, 64, 64);
-    g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(.12, 'rgba(255,255,255,.75)'); g.addColorStop(.35, 'rgba(255,240,255,.12)'); g.addColorStop(1, 'rgba(255,255,255,0)');
-    x.fillStyle = g; x.fillRect(0, 0, 128, 128);
-    x.globalCompositeOperation = 'lighter';
-    for (const [w, h] of [[128, 3], [3, 128]]) { const lg = x.createLinearGradient(w > h ? 0 : 64, w > h ? 64 : 0, w > h ? 128 : 64, w > h ? 64 : 128);
-      lg.addColorStop(0, 'rgba(255,255,255,0)'); lg.addColorStop(.5, 'rgba(255,255,255,.9)'); lg.addColorStop(1, 'rgba(255,255,255,0)');
-      x.fillStyle = lg; x.fillRect(64 - w / 2, 64 - h / 2, w, h); } })();
+  // obraz tego, co leży pod bańkami (tło + zjeżdżalnia), do refrakcji
+  function buildScene() {
+    scene.width = cv.width; scene.height = cv.height;
+    sctx.fillStyle = '#8cc8f6'; sctx.fillRect(0, 0, scene.width, scene.height);
+    if (slideImg.complete && slideImg.naturalWidth) {
+      const hr = hero.getBoundingClientRect(), ir = slideImg.getBoundingClientRect();
+      const iw = slideImg.naturalWidth, ih = slideImg.naturalHeight, s = Math.min(ir.width / iw, ir.height / ih);
+      const dw = iw * s, dh = ih * s, x = ir.left - hr.left + (ir.width - dw) / 2, y = ir.top - hr.top + (ir.height - dh) / 2;
+      sctx.drawImage(slideImg, x * DPR, y * DPR, dw * DPR, dh * DPR);
+    }
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, texScene);
+    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, scene);
+    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
+    sceneDirty = false;
+  }
+  const fb = new Float32Array(MAXB * 4), fb2 = new Float32Array(MAXB * 4);
 
   // ---------- fizyka bąbelków ----------
   const mouse = { x: -1e4, y: -1e4, px: -1e4, py: -1e4, vx: 0, vy: 0, on: false };
@@ -138,7 +202,7 @@
     const r = (z < .4 ? 10 + Math.random() * 18 : 18 + Math.pow(Math.random(), 1.8) * 52) * u;
     return { z, x: r + Math.random() * Math.max(1, W - 2 * r), y: r + Math.random() * Math.max(1, H - 2 * r),
       r, vx: (Math.random() - .5) * 0.6 * u, vy: (Math.random() - .5) * 0.6 * u, dying: false,
-      v: Math.floor(Math.random() * 3), rot: (Math.random() - .5) * .5, seed: Math.random(), ph: Math.random() * 6.283, wob: .7 + Math.random() * .7,
+      v: Math.floor(Math.random() * 3), rot: 0, seed: Math.random(), ph: Math.random() * 6.283, wob: .7 + Math.random() * .7,
       spin: (Math.random() - .5) * .25, life: 18 + Math.random() * 30, age: 0, pop: init ? 1 : 0, sq: 0, sqv: 0 };
   }
   // ruch powietrza: wolno zmieniające się pole prądów
@@ -194,26 +258,20 @@
       if (b.dying) { b.pop -= .02 * dt; if (b.pop <= 0) { B[i] = spawn(false); continue; } }
       else if (b.pop < 1) b.pop = Math.min(1, b.pop + .015 * dt);
     }
-    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-    ctx.clearRect(0, 0, W, H);
-    const S = B.slice().sort((p, q) => p.z - q.z), tt = (t - T0) / 1000;
-    for (const b of S) {
-      const im = b.z < .4 ? SPRB[b.v] : SPR[b.v]; if (!im) continue;
-      const w = Math.sin(t * .0017 * b.wob + b.ph) * .02 + b.sq;
-      const d = b.r * 2 / .8 * (b.z < .4 ? 256 / 208 : 1);
-      ctx.save(); ctx.translate(b.x, b.y); ctx.rotate(0); ctx.scale(1 + w, 1 - w);
-      ctx.globalAlpha = Math.max(0, b.pop) * (b.z < .4 ? .75 : 1);
-      ctx.drawImage(im, -d / 2, -d / 2, d, d);
-      ctx.restore();
-      if (false) {
-        const tw = Math.max(0, Math.sin(tt * (1.1 + b.wob) + b.ph * 3)) ** 3;
-        const sx = b.x + b.r * .64, sy = b.y - b.r * .69, ss = b.r * (.25 + .25 * tw);
-        ctx.globalAlpha = Math.max(0, b.pop) * (.2 + .5 * tw); ctx.globalCompositeOperation = 'lighter';
-        ctx.drawImage(STAR, sx - ss / 2, sy - ss / 2, ss, ss);
-        ctx.globalCompositeOperation = 'source-over';
+    if (gl) {
+      if (sceneDirty) buildScene();
+      gl.viewport(0, 0, cv.width, cv.height);
+      const S = B.slice().sort((p, q) => p.z - q.z), n = Math.min(S.length, MAXB);
+      for (let i = 0; i < n; i++) {
+        const b = S[i], w = Math.sin(t * .0017 * b.wob + b.ph) * .02 + b.sq;
+        fb.set([b.x * DPR, b.y * DPR, b.r * DPR, Math.max(0, b.pop) * (b.z < .4 ? .8 : 1)], i * 4);
+        fb2.set([1 + w, 1 - w, b.z < .4 ? 1 : 0, b.v], i * 4);
       }
+      gl.clear(gl.COLOR_BUFFER_BIT);
+      gl.uniform2f(uRes, cv.width, cv.height); gl.uniform1f(uTime, (t - T0) / 1000);
+      gl.uniform1i(uCount, n); gl.uniform4fv(uB, fb); gl.uniform4fv(uB2, fb2);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     }
-    ctx.globalAlpha = 1;
     requestAnimationFrame(frame);
   }
   function setM(x, y) { if (!mouse.on) { mouse.px = x; mouse.py = y; } mouse.x = x; mouse.y = y; mouse.on = true; }
