@@ -46,7 +46,8 @@
   .rp { margin: 0 0 4.4cqw; }
   .rh { font-size: max(1.61cqw, 20px); font-weight: 700; color: #0b4a55; letter-spacing: .025em; margin: 0 0 1.2cqw; }
   .rcar { position: relative; }
-  .rrow { display: flex; gap: 14px; overflow-x: auto; scroll-snap-type: x mandatory; scroll-behavior: smooth; padding-bottom: 6px; scrollbar-width: thin; }
+  .rrow { display: flex; gap: 14px; overflow-x: auto; scroll-snap-type: x mandatory; scroll-behavior: smooth; scrollbar-width: none; }
+  .rrow::-webkit-scrollbar { display: none; }
   .rc { flex: 0 0 auto; margin: 0; scroll-snap-align: start; height: clamp(190px, 21cqw, 300px); width: calc(clamp(190px, 21cqw, 300px) * var(--r)); cursor: zoom-in; position: relative; }
   .rc img { width: 100%; height: 100%; object-fit: cover; display: block; border-radius: 1.6cqw; background: #fff; }
   .rc figcaption { position: absolute; left: 0; right: 0; bottom: 0; padding: 18px 12px 9px; font-size: 12.5px; font-weight: 700; color: #fff;
