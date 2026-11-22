@@ -79,7 +79,7 @@
   <div class="txt">
     <p class="label">GRAFIK 3D · WARSZAWA</p>
     <h1 class="hname">Michał<br>Witkowski</h1>
-    <p class="sub">Grafik 3D. Architektura, miasta i parki wodne dla silników czasu rzeczywistego oraz narzędzia proceduralne, które przyspieszają pracę.</p>
+    <p class="sub">Grafik 3D. Architektura i miasta dla silników czasu rzeczywistego, parki wodne do produkcji oraz narzędzia proceduralne, które przyspieszają pracę grafików 3D.</p>
     <a class="cta" href="#/masterplany">Zobacz projekty →</a>
   </div>
 </div>
@@ -127,11 +127,18 @@
     const x = SC.getContext('2d'); x.setTransform(DPR, 0, 0, DPR, 0, 0);
     x.fillStyle = '#8cc8f6'; x.fillRect(0, 0, W, H);
     const hr = hero.getBoundingClientRect();
-    CR = [...stage.querySelectorAll('.slide, .label, .hname, .sub')].map(e => { const r = e.getBoundingClientRect(); return [r.left - hr.left, r.top - hr.top, r.right - hr.left, r.bottom - hr.top]; });
+    CR = [...stage.querySelectorAll('.slide, .label, .hname, .sub, .cta')].map(e => { const r = e.getBoundingClientRect(); return [r.left - hr.left, r.top - hr.top, r.right - hr.left, r.bottom - hr.top]; });
     const s = stage.getBoundingClientRect().width / (stage.offsetWidth || 1);
     const img = stage.querySelector('.slide');
     if (img && img.complete && img.naturalWidth) { const r = img.getBoundingClientRect(); x.drawImage(img, r.left - hr.left, r.top - hr.top, r.width, r.height); }
-    for (const el of stage.querySelectorAll('.label, .hname, .sub')) {
+    // przycisk (tło), żeby kopia tła w krawędzi bańki go nie wycinała
+    for (const el of stage.querySelectorAll('.cta')) {
+      const r = el.getBoundingClientRect(), cs = getComputedStyle(el);
+      x.fillStyle = cs.backgroundColor; x.beginPath();
+      if (x.roundRect) x.roundRect(r.left - hr.left, r.top - hr.top, r.width, r.height, r.height / 2); else x.rect(r.left - hr.left, r.top - hr.top, r.width, r.height);
+      x.fill();
+    }
+    for (const el of stage.querySelectorAll('.label, .hname, .sub, .cta')) {
       const cs = getComputedStyle(el);
       x.font = `${cs.fontStyle} ${cs.fontWeight} ${parseFloat(cs.fontSize) * s}px ${cs.fontFamily}`;
       x.fillStyle = cs.color; x.textBaseline = 'alphabetic';
