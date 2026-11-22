@@ -86,6 +86,8 @@
   .tool .rcar { margin-top: 1.6cqw; }
   .tool .rc { height: clamp(170px, 18cqw, 260px); width: calc(clamp(170px, 18cqw, 260px) * var(--r)); }
   .tool .rc img { object-fit: cover; }
+  .told { opacity: .85; }
+  .tmeta li.tzast { background: #d9577d; }
   .tnext { text-align: right; margin-top: 3cqw; }
   .tnext a.next { margin-top: 0; font-size: max(1.32cqw, 15px); font-weight: 700; }
   @media (max-width: 760px) { .tbody { grid-template-columns: 1fr; } .tool { padding: 16px; border-radius: 14px; } .tmedia video { border-radius: 10px; } }
@@ -655,11 +657,6 @@
 <div class="tbody"><div class="tmedia"><video src="https://witkowskimich.my.canva.site/_assets/video/0766cfddfcc5e2cc7327ddce4b26a21a.mp4" data-poster="https://witkowskimich.my.canva.site/_assets/video/c422ff0eeaee11d89dd4e5de7cb819bf.jpg" controls muted loop playsinline preload="none"></video></div><div class="ttext"><p><b>Slide Geometry Nodes</b> – układ nodów, który buduje kompletną zjeżdżalnię rurową ze stosu modyfikatorów: element startowy, odcinki rury (proste i katalogowe łuki Ø1000) i wannę hamowną. Każdy element zaczyna się tam, gdzie kończy poprzedni – wystarczy podać typ, promień, kąt i obrót, a cała trasa przelicza się na bieżąco. Powstaje rura z kołnierzami, obejmami, izolacją i ramionami podpór, a do tego długość osi, spadek i nachylenie każdego elementu.</p><p><b>Yolla</b> – dodatek do Blendera zbudowany na tych nodach, który prowadzi zjeżdżalnię od koncepcji do dokumentacji. Z jednego panelu dodajesz zjeżdżalnie, słupy i wieże schodowe, dostajesz podpowiedzi nachylenia, dociągasz trasę do zadanego punktu, a podpory rozstawiają się same. Kontrola wykrywa kolizje, zbyt strome i zbyt płaskie odcinki oraz za długie proste, a zestawienie zlicza elementy, stal i podpory i eksportuje je do Excela i PDF, rzuty zaś do DXF.</p></div></div>
 
 </article>
-<article class="tool" id="t-gh">
-<div class="thead"><h3>Generator zjeżdżalni</h3><ul class="tmeta"><li>2023–2025</li><li>Rhinoceros</li><li>Grasshopper</li></ul></div>
-<div class="tbody"><div class="tmedia"><video src="https://witkowskimich.my.canva.site/_assets/video/fd7839a7c971280675a965eb6f3ba7f6.mp4" data-poster="https://witkowskimich.my.canva.site/_assets/video/f479f1866792254982bfc0ae8550268c.jpg" controls muted loop playsinline preload="none"></video></div><div class="ttext"><p>Wyznacza przebieg i konstrukcję zjeżdżalni. Na wejściu dostaje listę elementów, obrót każdego z nich względem poprzedniego, położenie słupów i wymiary elementów konstrukcji. Na tej podstawie składa dokładny model 3D i liczy parametry wynikowe, m.in. nachylenie każdego odcinka.</p></div></div>
-
-</article>
 <h2 class="tgrp" data-g="Architektura">Architektura</h2>
 <article class="tool" id="t-okna">
 <div class="thead"><h3>Generator okien</h3><ul class="tmeta"><li>2026</li><li>Blender</li><li>Geometry Nodes</li></ul></div>
@@ -702,6 +699,12 @@
 <article class="tool" id="t-rozmieszczanie">
 <div class="thead"><h3>Rozmieszczanie obiektów</h3><ul class="tmeta"><li>2025</li><li>Blender</li><li>Geometry Nodes</li></ul></div>
 <div class="tbody"><div class="tmedia"><video src="https://witkowskimich.my.canva.site/_assets/video/d2bf7f6fcf6fe60662df6ff994315dac.mp4" data-poster="https://witkowskimich.my.canva.site/_assets/video/8128e79529b6665ff1a34da57a2f15a1.jpg" controls muted loop playsinline preload="none"></video></div><div class="ttext"><p>Rozmieszcza dużą liczbę obiektów, na przykład roślinność, według zadanych parametrów: materiału podłoża, na którym mają się pojawić, gęstości, obrotu, odległości od krawędzi siatki bazowej i innych. Wystarczy narysować na podłożu krzywą ołówkiem – sama przyciąga się do siatki, a obiekty układają się wzdłuż niej.</p></div></div>
+
+</article>
+<h2 class="tgrp" data-g="Wcześniejsze wersje">Wcześniejsze wersje</h2>
+<article class="tool told" id="t-gh">
+<div class="thead"><h3>Generator zjeżdżalni</h3><ul class="tmeta"><li>2023–2025</li><li>Rhinoceros</li><li>Grasshopper</li><li class="tzast">zastąpiony przez Slide Geometry Nodes i Yolla</li></ul></div>
+<div class="tbody"><div class="tmedia"><video src="https://witkowskimich.my.canva.site/_assets/video/fd7839a7c971280675a965eb6f3ba7f6.mp4" data-poster="https://witkowskimich.my.canva.site/_assets/video/f479f1866792254982bfc0ae8550268c.jpg" controls muted loop playsinline preload="none"></video></div><div class="ttext"><p class="tdet">Wcześniejsza wersja narzędzia do zjeżdżalni. Dziś zamiast niego używam Slide Geometry Nodes i dodatku Yolla.</p><p>Wyznaczał przebieg i konstrukcję zjeżdżalni. Na wejściu dostawał listę elementów, obrót każdego z nich względem poprzedniego, położenie słupów i wymiary elementów konstrukcji. Na tej podstawie składał dokładny model 3D i liczył parametry wynikowe, m.in. nachylenie każdego odcinka.</p></div></div>
 
 </article>
 <div class="tnext"><a class="next" href="#/masterplany">Dalej: Masterplany →</a></div>
