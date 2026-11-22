@@ -117,6 +117,63 @@
       const x = c.getContext('2d'); x.filter = 'blur(2.5px)'; x.drawImage(im, 24, 24, 208, 208); SPRB[i] = c;
     };
   }
+  // ---------- kopia tła (do lekkiego zagięcia obrazu przy krawędzi bańki) ----------
+  const SC = document.createElement('canvas'); let scReady = false; let CR = [];
+  function buildScene() {
+    if (!W || !H) return;
+    SC.width = Math.round(W * DPR); SC.height = Math.round(H * DPR);
+    const x = SC.getContext('2d'); x.setTransform(DPR, 0, 0, DPR, 0, 0);
+    x.fillStyle = '#8cc8f6'; x.fillRect(0, 0, W, H);
+    const hr = hero.getBoundingClientRect();
+    CR = [...stage.querySelectorAll('.slide, .label, .hname, .sub')].map(e => { const r = e.getBoundingClientRect(); return [r.left - hr.left, r.top - hr.top, r.right - hr.left, r.bottom - hr.top]; });
+    const s = stage.getBoundingClientRect().width / (stage.offsetWidth || 1);
+    const img = stage.querySelector('.slide');
+    if (img && img.complete && img.naturalWidth) { const r = img.getBoundingClientRect(); x.drawImage(img, r.left - hr.left, r.top - hr.top, r.width, r.height); }
+    for (const el of stage.querySelectorAll('.label, .hname, .sub')) {
+      const cs = getComputedStyle(el);
+      x.font = `${cs.fontStyle} ${cs.fontWeight} ${parseFloat(cs.fontSize) * s}px ${cs.fontFamily}`;
+      x.fillStyle = cs.color; x.textBaseline = 'alphabetic';
+      try { x.letterSpacing = ((parseFloat(cs.letterSpacing) || 0) * s) + 'px'; } catch (e) {}
+      const asc = x.measureText('Mg').fontBoundingBoxAscent || parseFloat(cs.fontSize) * s * .9;
+      const tw = document.createTreeWalker(el, NodeFilter.SHOW_TEXT); let n;
+      while ((n = tw.nextNode())) {
+        const re = /\S+/g; let m;
+        while ((m = re.exec(n.data))) {
+          const rg = document.createRange(); rg.setStart(n, m.index); rg.setEnd(n, m.index + m[0].length);
+          const r = rg.getClientRects()[0]; if (!r) continue;
+          x.fillText(m[0], r.left - hr.left, r.top - hr.top + asc);
+        }
+      }
+    }
+    scReady = true;
+  }
+  { const img = stage.querySelector('.slide'); if (img) img.addEventListener('load', () => buildScene()); }
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => buildScene());
+  // zagięcie liczone tylko tam, gdzie pod bańką jest obraz lub tekst (na gładkim błękicie i tak nic nie widać)
+  const overContent = b => { const e = b.r * 1.15; return CR.some(r => b.x + e > r[0] && b.x - e < r[2] && b.y + e > r[1] && b.y - e < r[3]); };
+  let FR = 0;
+  function lens(b, w) {
+    const R = b.r, NR = 5;
+    // pierścień liczony co 2. klatkę (albo od razu, gdy bańka szybko leci), potem tylko kopiowany
+    const sz = Math.ceil(2 * R * DPR) + 2;
+    if (!b.lc || b.lc.width !== sz) { b.lc = document.createElement('canvas'); b.lc.width = b.lc.height = sz; b.lt = -9; }
+    if (FR - b.lt >= 2 || Math.hypot(b.vx, b.vy) > 1.2) {
+      b.lt = FR;
+      const c = b.lc.getContext('2d'); c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, sz, sz);
+      c.setTransform(DPR, 0, 0, DPR, sz / 2, sz / 2);
+      for (let k = 0; k < NR; k++) {
+        const r0 = R * (.72 + .28 * k / NR), r1 = R * (.72 + .28 * (k + 1) / NR);
+        const rho = (k + .5) / NR, m = 1 - .10 * rho * rho, sr = r1 / m;
+        c.save(); c.beginPath(); c.arc(0, 0, r1, 0, 6.2832); c.arc(0, 0, r0, 0, 6.2832, true); c.clip();
+        c.drawImage(SC, (b.x - sr) * DPR, (b.y - sr) * DPR, 2 * sr * DPR, 2 * sr * DPR, -r1, -r1, 2 * r1, 2 * r1);
+        c.restore();
+      }
+    }
+    ctx.save(); ctx.translate(b.x, b.y); ctx.scale(1 + w, 1 - w);
+    ctx.globalAlpha = Math.max(0, b.pop);
+    const h = sz / DPR / 2; ctx.drawImage(b.lc, -h, -h, 2 * h, 2 * h);
+    ctx.restore();
+  }
   // błysk-gwiazdka (glare)
   const STAR = document.createElement('canvas'); STAR.width = STAR.height = 128;
   (() => { const x = STAR.getContext('2d'); const g = x.createRadialGradient(64, 64, 0, 64, 64, 64);
@@ -150,9 +207,9 @@
   
   function frame(t) {
     if (hero.offsetParent === null) { last = t; requestAnimationFrame(frame); return; }
-    if (hero.clientWidth !== W || hero.clientHeight !== H) layout();
+    if (hero.clientWidth !== W || hero.clientHeight !== H) { layout(); buildScene(); }
     if (!B.length && W > 0) initB();
-    const dt = Math.min(40, t - last) / 16.67; last = t;
+    const dt = Math.min(40, t - last) / 16.67; last = t; FR++;
     const u = unit();
     mouse.vx = mouse.vx * .6 + (mouse.x - mouse.px) * .4; mouse.vy = mouse.vy * .6 + (mouse.y - mouse.py) * .4;
     mouse.px = mouse.x; mouse.py = mouse.y;
@@ -191,7 +248,7 @@
       // sprężyste drżenie kształtu
       b.sqv += (-b.sq * .08) * dt; b.sqv *= Math.pow(.92, dt); b.sq += b.sqv * dt;
       if (b.age > b.life) b.dying = true;
-      if (b.dying) { b.pop -= .02 * dt; if (b.pop <= 0) { B[i] = spawn(false); continue; } }
+      if (b.dying) { b.pop -= .02 * dt; if (b.pop <= 0) { if (B.length > N) { B.splice(i, 1); i--; } else B[i] = spawn(false); continue; } }
       else if (b.pop < 1) b.pop = Math.min(1, b.pop + .015 * dt);
     }
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
@@ -201,6 +258,7 @@
       const im = b.z < .4 ? SPRB[b.v] : SPR[b.v]; if (!im) continue;
       const w = Math.sin(t * .0017 * b.wob + b.ph) * .02 + b.sq;
       const d = b.r * 2 / .8 * (b.z < .4 ? 256 / 208 : 1);
+      if (scReady && b.z >= .4 && overContent(b)) lens(b, w);
       ctx.save(); ctx.translate(b.x, b.y); ctx.rotate(0); ctx.scale(1 + w, 1 - w);
       ctx.globalAlpha = Math.max(0, b.pop) * (b.z < .4 ? .75 : 1);
       ctx.drawImage(im, -d / 2, -d / 2, d, d);
@@ -221,10 +279,27 @@
   addEventListener('pointermove', e => setM(...rel(e.clientX, e.clientY)), { passive: true });
   addEventListener('pointerdown', e => setM(...rel(e.clientX, e.clientY)), { passive: true });
   addEventListener('touchmove', e => { const p = e.touches[0]; if (p) setM(...rel(p.clientX, p.clientY)); }, { passive: true });
+  // klik w tło (nie w tekst) – nowe bańki wylatują z miejsca kliknięcia
+  hero.addEventListener('pointerdown', e => {
+    if (e.target.closest('p, h1, a, .cta')) return;
+    const [px, py] = rel(e.clientX, e.clientY), u = unit();
+    const n = 3 + Math.floor(Math.random() * 3);
+    for (let i = 0; i < n; i++) {
+      const b = spawn(false);
+      b.z = .55 + Math.random() * .45; b.r = (14 + Math.random() * 34) * u;
+      b.x = px + (Math.random() - .5) * 30 * u; b.y = py + (Math.random() - .5) * 30 * u;
+      const a = Math.random() * 6.2832, sp = (1.2 + Math.random() * 2.2) * u;
+      b.vx = Math.cos(a) * sp; b.vy = Math.sin(a) * sp - .6 * u; b.pop = 0;
+      B.push(b);
+    }
+    // limit: najstarsze nadmiarowe łagodnie znikają
+    let extra = B.filter(o => !o.dying).length - MAXB;
+    for (const o of B.slice().sort((p, q) => q.age - p.age)) { if (extra <= 0) break; if (!o.dying) { o.dying = true; extra--; } }
+  });
   document.documentElement.addEventListener('mouseleave', () => { mouse.on = false; });
   addEventListener('blur', () => { mouse.on = false; });
-  addEventListener('resize', layout);
-  layout();
+  addEventListener('resize', () => { layout(); buildScene(); });
+  layout(); buildScene();
   function initB() { for (let i = 0; i < N; i++) { const b = spawn(true); b.age = Math.random() * b.life * .7; B.push(b); } }
   requestAnimationFrame(frame);
 })();
