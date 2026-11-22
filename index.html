@@ -69,14 +69,14 @@
   /* ---------- Narzędzia proceduralne: karty narzędzi ---------- */
   .tools { padding: 0 4.26cqw 5cqw; }
   .tidx { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 1cqw; }
-  .tchip { border: 0; cursor: pointer; font: inherit; font-weight: 700; font-size: max(1cqw, 13px); color: #0b4a55; background: rgba(255,255,255,.55); padding: 8px 16px; border-radius: 999px; }
-  .tchip:hover { background: #fff; }
+  .tchip { border: 0; cursor: pointer; font: inherit; font-weight: 700; font-size: max(1cqw, 13px); color: #fff; background: #d9577d; padding: 8px 16px; border-radius: 999px; }
+  .tchip:hover { background: #c4466c; }
   .tgrp { font-size: max(1.03cqw, 13px); font-weight: 700; color: #fff; letter-spacing: .08em; text-transform: uppercase; margin: 3.6cqw 0 1.4cqw; scroll-margin-top: 70px; }
   .tool { background: rgba(255,255,255,.22); border-radius: 1.6cqw; padding: 2.2cqw; margin: 0 0 2.2cqw; }
   .tool .thead { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px 18px; margin: 0 0 1.4cqw; }
   .tool h3 { font-size: max(1.76cqw, 20px); font-weight: 700; color: #0a2a4a; margin: 0; letter-spacing: .01em; }
   .tmeta { display: flex; flex-wrap: wrap; gap: 6px; list-style: none; margin: 0; padding: 0; }
-  .tmeta li { font-size: max(.88cqw, 12px); font-weight: 700; color: #0b4a55; background: rgba(255,255,255,.6); padding: 4px 10px; border-radius: 999px; }
+  .tmeta li { font-size: max(.88cqw, 12px); font-weight: 700; color: #fff; background: #0a9a92; padding: 4px 10px; border-radius: 999px; }
   .tbody { display: grid; grid-template-columns: 1.65fr 1fr; gap: 2.2cqw; align-items: start; }
   .tmedia { display: flex; flex-direction: column; gap: 1.2cqw; }
   .tmedia video { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; display: block; border-radius: 1.2cqw; background: #0b2a3a; }
@@ -648,7 +648,7 @@
 <div class="t" style="left:4.2606%;top:24.0209%;width:43.9239%;height:4.3864%;font-size:1.0249cqw;font-weight:700;color:#ffffff;text-align:left;line-height:1;letter-spacing:0.025em;">NARZĘDZIA I DODATKI</div>
 </section>
 <section class="tools">
-<nav class="tidx"><button class="tchip" data-t="Zjeżdżalnie i parki wodne">Zjeżdżalnie i parki wodne</button><button class="tchip" data-t="Architektura">Architektura</button><button class="tchip" data-t="Scenografia i stoiska">Scenografia i stoiska</button><button class="tchip" data-t="Teren">Teren</button></nav>
+<nav class="tidx"><button class="tchip" data-t="Zjeżdżalnie i parki wodne">Zjeżdżalnie i parki wodne</button><button class="tchip" data-t="Architektura">Architektura</button><button class="tchip" data-t="Teren">Teren</button></nav>
 <h2 class="tgrp" data-g="Zjeżdżalnie i parki wodne">Zjeżdżalnie i parki wodne</h2>
 <article class="tool" id="t-slide">
 <div class="thead"><h3>Slide Geometry Nodes i dodatek Yolla</h3><ul class="tmeta"><li>2026</li><li>Blender</li><li>Geometry Nodes</li><li>Python</li></ul></div>
@@ -685,12 +685,6 @@
 <figure class="rc" style="--r:0.9443"><img src="https://witkowskimich.my.canva.site/_assets/media/070b942679d7039dbb1c17c8f4417e96.png" data-full="https://witkowskimich.my.canva.site/_assets/media/070b942679d7039dbb1c17c8f4417e96.png" alt="Panel parametrów – część 2" loading="lazy" decoding="async"><figcaption>Panel parametrów – część 2</figcaption></figure>
 </div><button class="rbt next" aria-label="Następne">›</button></div>
 </article>
-<article class="tool" id="t-wnetrza">
-<div class="thead"><h3>Generator wnętrz</h3><ul class="tmeta"><li>2025</li><li>Blender</li><li>Geometry Nodes</li></ul></div>
-<div class="tbody"><div class="tmedia"><video src="https://witkowskimich.my.canva.site/_assets/video/94f77c966acb770c23ecc0918842ddbf.mp4" data-poster="https://witkowskimich.my.canva.site/_assets/video/34b96f626c6f0352f334c6506e31b23c.jpg" controls muted loop playsinline preload="none"></video><video src="https://witkowskimich.my.canva.site/_assets/video/12e73b8a8fc23cdb1bafb001249efb3b.mp4" data-poster="https://witkowskimich.my.canva.site/_assets/video/1156880a00f280311ea267c9b64099ca.jpg" controls muted loop playsinline preload="none"></video></div><div class="ttext"><p>Tworzy model 3D wnętrza z płaskiego obrysu rzutu. Na podstawie przypisanych materiałów i parametrów buduje model, który można edytować w dowolnym momencie. Uwzględnia drzwi i okna oraz otwory w stropach na szyby i klatki schodowe, razem z ich zamknięciem na wybranych kondygnacjach.</p></div></div>
-
-</article>
-<h2 class="tgrp" data-g="Scenografia i stoiska">Scenografia i stoiska</h2>
 <article class="tool" id="t-kratownice">
 <div class="thead"><h3>Generator kratownic</h3><ul class="tmeta"><li>2026</li><li>Blender</li><li>Geometry Nodes</li></ul></div>
 <div class="tbody"><div class="tmedia"><video src="narzedzia/kratownice.mp4" data-poster="narzedzia/kratownice_poster.jpg" controls muted loop playsinline preload="none"></video></div><div class="ttext"><p>Zamienia siatkę osi – zwykłe krawędzie narysowane w Blenderze – w kompletną konstrukcję z kratownic aluminiowych: odcinki z pasami i krzyżulcami, wieże ze stopami i płytami bazowymi, łuki i okręgi, narożniki box corner oraz węzły pod dowolnym kątem. Jest częścią dodatku Scenografia do projektowania stoisk targowych i scenografii.</p><p class="tdet">Rysujesz tylko osie: krawędzie poziome to belki, pionowe to wieże. Liczbę i rozstaw pasów, średnice rur, podziałkę i wzór krzyżulców ustawia preset producenta (F34, H30V, H40V, H52V, X30 i inne), a własne systemy dopisuje się w pliku JSON razem z długościami handlowymi i tabelą nośności. Łuki są wygładzane i dzielone na odcinki, w węzłach generator dobiera złącza i narożniki box corner albo spawane, a pod wieżami stawia stopy. Każdy układ jest sprawdzany testami: zamknięte bryły, bez przenikań elementów.</p></div></div>
@@ -698,6 +692,11 @@
 <figure class="rc" style="--r:0.5827"><img src="narzedzia/kratownica_parametry.jpg" data-full="narzedzia/kratownica_parametry.jpg" alt="Panel parametrów" loading="lazy" decoding="async"><figcaption>Panel parametrów</figcaption></figure>
 <figure class="rc" style="--r:1.7778"><img src="narzedzia/kratownice_kadr.jpg" data-full="narzedzia/kratownice_kadr.jpg" alt="Kratownica prostokątna i okrągła" loading="lazy" decoding="async"><figcaption>Kratownica prostokątna i okrągła</figcaption></figure>
 </div><button class="rbt next" aria-label="Następne">›</button></div>
+</article>
+<article class="tool" id="t-wnetrza">
+<div class="thead"><h3>Generator wnętrz</h3><ul class="tmeta"><li>2025</li><li>Blender</li><li>Geometry Nodes</li></ul></div>
+<div class="tbody"><div class="tmedia"><video src="https://witkowskimich.my.canva.site/_assets/video/94f77c966acb770c23ecc0918842ddbf.mp4" data-poster="https://witkowskimich.my.canva.site/_assets/video/34b96f626c6f0352f334c6506e31b23c.jpg" controls muted loop playsinline preload="none"></video><video src="https://witkowskimich.my.canva.site/_assets/video/12e73b8a8fc23cdb1bafb001249efb3b.mp4" data-poster="https://witkowskimich.my.canva.site/_assets/video/1156880a00f280311ea267c9b64099ca.jpg" controls muted loop playsinline preload="none"></video></div><div class="ttext"><p>Tworzy model 3D wnętrza z płaskiego obrysu rzutu. Na podstawie przypisanych materiałów i parametrów buduje model, który można edytować w dowolnym momencie. Uwzględnia drzwi i okna oraz otwory w stropach na szyby i klatki schodowe, razem z ich zamknięciem na wybranych kondygnacjach.</p></div></div>
+
 </article>
 <h2 class="tgrp" data-g="Teren">Teren</h2>
 <article class="tool" id="t-rozmieszczanie">
