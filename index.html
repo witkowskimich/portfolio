@@ -109,7 +109,7 @@
   const SPR = [], SPRB = [];
   const base = (document.currentScript && document.currentScript.dataset.base) || 'sprites/';
   for (let i = 0; i < 1; i++) {
-    const im = new Image(); im.src = base + 'clean.webp';
+    const im = new Image(); im.src = base + 'bubble.webp';
     im.onload = () => {
       SPR[i] = im;
       // wersja rozmyta (tło) przygotowana raz
@@ -200,12 +200,12 @@
     for (const b of S) {
       const im = b.z < .4 ? SPRB[b.v] : SPR[b.v]; if (!im) continue;
       const w = Math.sin(t * .0017 * b.wob + b.ph) * .02 + b.sq;
-      const d = b.r * 2 * (b.z < .4 ? 256 / 208 : 1);
-      ctx.save(); ctx.translate(b.x, b.y); ctx.rotate(b.rot); ctx.scale(1 + w, 1 - w);
+      const d = b.r * 2 / .8 * (b.z < .4 ? 256 / 208 : 1);
+      ctx.save(); ctx.translate(b.x, b.y); ctx.rotate(0); ctx.scale(1 + w, 1 - w);
       ctx.globalAlpha = Math.max(0, b.pop) * (b.z < .4 ? .75 : 1);
       ctx.drawImage(im, -d / 2, -d / 2, d, d);
       ctx.restore();
-      if (b.z > .7) {   // migoczący błysk na krawędzi
+      if (false) {
         const tw = Math.max(0, Math.sin(tt * (1.1 + b.wob) + b.ph * 3)) ** 3;
         const sx = b.x + b.r * .64, sy = b.y - b.r * .69, ss = b.r * (.25 + .25 * tw);
         ctx.globalAlpha = Math.max(0, b.pop) * (.2 + .5 * tw); ctx.globalCompositeOperation = 'lighter';
