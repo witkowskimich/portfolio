@@ -212,6 +212,7 @@
     if (hero.clientWidth !== W || hero.clientHeight !== H) { layout(); buildScene(); }
     if (!B.length && W > 0) initB();
     const dt = Math.min(40, t - last) / 16.67; last = t; FR++;
+    holdTick(t, dt);
     const u = unit();
     mouse.vx = mouse.vx * .6 + (mouse.x - mouse.px) * .4; mouse.vy = mouse.vy * .6 + (mouse.y - mouse.py) * .4;
     mouse.px = mouse.x; mouse.py = mouse.y;
@@ -283,11 +284,9 @@
   addEventListener('touchmove', e => { const p = e.touches[0]; if (p) setM(...rel(p.clientX, p.clientY)); }, { passive: true });
   // klik w tło nie zaznacza tekstu
   hero.addEventListener('mousedown', e => { if (!e.target.closest('p, h1, a, .cta')) { e.preventDefault(); const s = getSelection(); if (s && !s.isCollapsed) s.removeAllRanges(); } });
-  // klik w tło (nie w tekst) – nowe bańki wylatują z miejsca kliknięcia
-  hero.addEventListener('pointerdown', e => {
-    if (e.target.closest('p, h1, a, .cta')) return;
-    const [px, py] = rel(e.clientX, e.clientY), u = unit();
-    const n = 3 + Math.floor(Math.random() * 3);
+  // klik w tło (nie w tekst) – nowe bańki wylatują z miejsca kliknięcia; przytrzymanie = bańki lecą bez przerwy
+  function emit(px, py, n) {
+    const u = unit();
     for (let i = 0; i < n; i++) {
       const b = spawn(false);
       b.z = .55 + Math.random() * .45; b.r = (14 + Math.random() * 34) * u;
@@ -298,8 +297,22 @@
     }
     // limit: najstarsze nadmiarowe łagodnie znikają
     let extra = B.filter(o => !o.dying).length - MAXB;
-    for (const o of B.slice().sort((p, q) => q.age - p.age)) { if (extra <= 0) break; if (!o.dying) { o.dying = true; extra--; } }
+    if (extra > 0) for (const o of B.slice().sort((p, q) => q.age - p.age)) { if (extra <= 0) break; if (!o.dying) { o.dying = true; extra--; } }
+  }
+  let hold = null;
+  hero.addEventListener('pointerdown', e => {
+    if (e.button !== 0 || e.target.closest('p, h1, a, .cta')) return;
+    const [px, py] = rel(e.clientX, e.clientY);
+    emit(px, py, 3 + Math.floor(Math.random() * 3));
+    hold = { id: e.pointerId, x: px, y: py, t: performance.now() + 250, acc: 0 };
   });
+  addEventListener('pointermove', e => { if (hold && e.pointerId === hold.id) [hold.x, hold.y] = rel(e.clientX, e.clientY); }, { passive: true });
+  for (const ev of ['pointerup', 'pointercancel', 'blur']) addEventListener(ev, () => { hold = null; });
+  function holdTick(t, dt) {
+    if (!hold || t < hold.t) return;
+    hold.acc += dt * 16.67;
+    while (hold.acc >= 85) { hold.acc -= 85; emit(hold.x, hold.y, 1); }
+  }
   document.documentElement.addEventListener('mouseleave', () => { mouse.on = false; });
   addEventListener('blur', () => { mouse.on = false; });
   addEventListener('resize', () => { layout(); buildScene(); });
