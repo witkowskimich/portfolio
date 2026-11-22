@@ -282,8 +282,16 @@
   addEventListener('pointermove', e => setM(...rel(e.clientX, e.clientY)), { passive: true });
   addEventListener('pointerdown', e => setM(...rel(e.clientX, e.clientY)), { passive: true });
   addEventListener('touchmove', e => { const p = e.touches[0]; if (p) setM(...rel(p.clientX, p.clientY)); }, { passive: true });
+  // czy kursor jest naprawdę nad literami (a nie nad pustym miejscem obok, w tym samym bloku)
+  function onText(e) {
+    const el = e.target.closest('p, h1, a, .cta'); if (!el) return false;
+    if (el.closest('a, .cta')) return true;
+    const rg = document.createRange(); rg.selectNodeContents(el);
+    for (const r of rg.getClientRects()) if (e.clientX >= r.left - 3 && e.clientX <= r.right + 3 && e.clientY >= r.top - 2 && e.clientY <= r.bottom + 2) return true;
+    return false;
+  }
   // klik w tło nie zaznacza tekstu
-  hero.addEventListener('mousedown', e => { if (!e.target.closest('p, h1, a, .cta')) { e.preventDefault(); const s = getSelection(); if (s && !s.isCollapsed) s.removeAllRanges(); } });
+  hero.addEventListener('mousedown', e => { if (!onText(e)) { e.preventDefault(); const s = getSelection(); if (s && !s.isCollapsed) s.removeAllRanges(); } });
   // klik w tło (nie w tekst) – nowe bańki wylatują z miejsca kliknięcia; przytrzymanie = bańki lecą bez przerwy
   function emit(px, py, n) {
     const u = unit();
@@ -301,7 +309,7 @@
   }
   let hold = null;
   hero.addEventListener('pointerdown', e => {
-    if (e.button !== 0 || e.target.closest('p, h1, a, .cta')) return;
+    if (e.button !== 0 || onText(e)) return;
     const [px, py] = rel(e.clientX, e.clientY);
     emit(px, py, 3 + Math.floor(Math.random() * 3));
     hold = { id: e.pointerId, x: px, y: py, t: performance.now() + 250, acc: 0 };
