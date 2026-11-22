@@ -91,6 +91,8 @@
   const hero = document.getElementById('hero'); const stage = document.getElementById('stage');
   const cv = document.getElementById('fx');
   let W = 0, H = 0, DPR = 1;
+  // telefon / tablet: lżejszy tryb (bez zagięcia tła, mniejsza rozdzielczość płótna)
+  const MOB = matchMedia('(pointer: coarse)').matches;
 
   function layout() {
     W = hero.clientWidth; H = hero.clientHeight;
@@ -99,7 +101,7 @@
     const bw = portrait ? 768 : 1366, bh = portrait ? 1300 : 768;
     const s = Math.min(W / bw, H / bh);
     stage.style.transform = `translate(${(W - bw * s) / 2}px, ${(H - bh * s) / 2}px) scale(${s})`;
-    DPR = Math.min(devicePixelRatio || 1, 1.75);
+    DPR = Math.min(devicePixelRatio || 1, MOB ? 1.5 : 1.75);
     cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
 
   }
@@ -110,20 +112,29 @@
   const MAXB = 128;
   // realistyczne bańki wyrenderowane w Blenderze (odbicia, błonka z kolorowym szumem, odblaski)
   const SPR = [], SPRB = [];
+  // każda bańka przygotowana raz w kilku rozmiarach (512…32 px) – w każdej klatce rysowany jest
+  // gotowy obrazek w rozmiarze zbliżonym do docelowego, zamiast zmniejszania dużego obrazka
+  function mips(src, size, blur) {
+    const out = []; let prev = null;
+    for (let sz = size; sz >= 32; sz >>= 1) {
+      const c = document.createElement('canvas'); c.width = c.height = sz; const x = c.getContext('2d');
+      x.imageSmoothingQuality = 'high';
+      if (!prev) { if (blur) { x.filter = 'blur(2.5px)'; x.drawImage(src, 24, 24, 208, 208); } else x.drawImage(src, 0, 0, sz, sz); }
+      else x.drawImage(prev, 0, 0, sz, sz);
+      out.push(c); prev = c;
+    }
+    return out;
+  }
+  const pick = (L, px) => { let c = L[0]; for (const m of L) { if (m.width >= px) c = m; else break; } return c; };
   const base = (document.currentScript && document.currentScript.dataset.base) || 'sprites/';
   for (let i = 0; i < 4; i++) {
     const im = new Image(); im.src = base + 'babelb' + i + '.webp';
-    im.onload = () => {
-      SPR[i] = im;
-      // wersja rozmyta (tło) przygotowana raz
-      const c = document.createElement('canvas'); c.width = c.height = 256;
-      const x = c.getContext('2d'); x.filter = 'blur(2.5px)'; x.drawImage(im, 24, 24, 208, 208); SPRB[i] = c;
-    };
+    im.onload = () => { SPR[i] = mips(im, 512, false); SPRB[i] = mips(im, 256, true); };
   }
   // ---------- kopia tła (do lekkiego zagięcia obrazu przy krawędzi bańki) ----------
   const SC = document.createElement('canvas'); let scReady = false; let CR = [];
   function buildScene() {
-    if (!W || !H) return;
+    if (MOB || !W || !H) return;
     SC.width = Math.round(W * DPR); SC.height = Math.round(H * DPR);
     const x = SC.getContext('2d'); x.setTransform(DPR, 0, 0, DPR, 0, 0);
     x.fillStyle = '#8cc8f6'; x.fillRect(0, 0, W, H);
@@ -214,10 +225,12 @@
     Math.cos(x * .0031 + t * .0004) * .25 ];
 
   let last = performance.now(), T0 = last;
+  let heroVis = true;
+  if ('IntersectionObserver' in window) new IntersectionObserver(e => { heroVis = e[0].isIntersecting; }).observe(hero);
   
   function frame(t) {
-    if (hero.offsetParent === null) { last = t; requestAnimationFrame(frame); return; }
-    if (hero.clientWidth !== W || hero.clientHeight !== H) { layout(); buildScene(); }
+    if (hero.offsetParent === null || !heroVis) { last = t; requestAnimationFrame(frame); return; }
+    if (hero.clientWidth !== W || hero.clientHeight !== H) { layout(); sceneLater(); }
     if (!B.length && W > 0) initB();
     const dt = Math.min(40, t - last) / 16.67; last = t; FR++;
     holdTick(t, dt);
@@ -266,10 +279,11 @@
     ctx.clearRect(0, 0, W, H);
     const S = B.slice().sort((p, q) => p.z - q.z), tt = (t - T0) / 1000;
     for (const b of S) {
-      const im = b.z < .4 ? SPRB[b.v] : SPR[b.v]; if (!im) continue;
+      const L = b.z < .4 ? SPRB[b.v] : SPR[b.v]; if (!L) continue;
       const w = Math.sin(t * .0017 * b.wob + b.ph) * .02 + b.sq;
       const d = b.r * 2 / .8 * (b.z < .4 ? 256 / 208 : 1);
-      if (scReady && b.z >= .4 && overContent(b)) lens(b, w);
+      const im = pick(L, d * DPR * (1 + Math.abs(w)));
+      if (!MOB && scReady && b.z >= .4 && overContent(b)) lens(b, w);
       ctx.save(); ctx.translate(b.x, b.y); ctx.rotate(0); ctx.scale(1 + w, 1 - w);
       ctx.globalAlpha = Math.max(0, b.pop) * (b.z < .4 ? .75 : 1);
       ctx.drawImage(im, -d / 2, -d / 2, d, d);
@@ -331,7 +345,8 @@
   }
   document.documentElement.addEventListener('mouseleave', () => { mouse.on = false; });
   addEventListener('blur', () => { mouse.on = false; });
-  addEventListener('resize', () => { layout(); buildScene(); });
+  let scT = 0; const sceneLater = () => { clearTimeout(scT); scT = setTimeout(buildScene, 250); };
+  addEventListener('resize', () => { if (hero.clientWidth !== W || hero.clientHeight !== H) { layout(); sceneLater(); } });
   layout(); buildScene();
   function initB() { for (let i = 0; i < N; i++) { const b = spawn(true); b.age = Math.random() * b.life * .7; B.push(b); } }
   requestAnimationFrame(frame);
