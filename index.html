@@ -46,6 +46,8 @@
   #hero .cta { cursor: pointer; }
   /* „Dalej” na dole podstron – zielony przycisk jak „Zobacz projekty” (wielkość tekstu bez zmian) */
   a.next { display: inline-block; background: #0a9a92; color: #fff; text-decoration: none; padding: .61em 1.22em; margin-top: -.61em; border-radius: 999px; white-space: nowrap; }
+  @media (max-width: 700px) { a.next { font-size: max(1em, 14px); margin-top: -1.6em; }
+    .t:has(> a.next) { left: auto !important; right: 4.23%; width: auto !important; } }
   footer { text-align: center; font-size: 12px; color: #0b4a55; padding: 18px 0 26px; }
 </style>
 </head>
@@ -362,7 +364,7 @@
 <main class="page" id="p-masterplany" data-title="Masterplany" hidden>
 <section class="sec" style="aspect-ratio:1366.0/369;background:#8cc8f6">
 <div class="t" style="left:4.2606%;top:32.5203%;width:43.9239%;height:4.5528%;font-size:1.0249cqw;font-weight:700;color:#ffffff;text-align:left;line-height:1;letter-spacing:0.025em;">MODELE 3D</div>
-<div class="t" style="left:4.2606%;top:40.6504%;width:91.5081%;height:23.2520%;font-size:5.2709cqw;font-weight:700;color:#ffffff;text-align:left;line-height:1.05;letter-spacing:0.025em;">Masterplany</div>
+<div class="t" style="left:4.2606%;top:40.6504%;width:91.5081%;height:23.2520%;font-size:5.2709cqw;font-weight:700;color:#0a2a4a;text-align:left;line-height:1.05;letter-spacing:0.025em;">Masterplany</div>
 <div class="t" style="left:4.2606%;top:67.7507%;width:58.5652%;height:14.0921%;font-size:1.4641cqw;font-weight:400;color:#0b4a55;text-align:left;line-height:1.4;letter-spacing:0.025em;">Wyspiarskie resorty, osiedla willowe i kwartały miejskie, modelowane do interaktywnych aplikacji sprzedażowych w silnikach czasu rzeczywistego.</div>
 </section>
 <section class="sec" style="aspect-ratio:1366.0/785;background:#8cc8f6">
@@ -418,7 +420,7 @@
 <main class="page" id="p-wiezowce" data-title="Wieżowce" hidden>
 <section class="sec" style="aspect-ratio:1366.0/373;background:#8cc8f6">
 <div class="t" style="left:4.2606%;top:32.1716%;width:43.9239%;height:4.5040%;font-size:1.0249cqw;font-weight:700;color:#ffffff;text-align:left;line-height:1;letter-spacing:0.025em;">MODELE 3D</div>
-<div class="t" style="left:4.2606%;top:40.2145%;width:91.5081%;height:23.0027%;font-size:5.2709cqw;font-weight:700;color:#ffffff;text-align:left;line-height:1.05;letter-spacing:0.025em;">Wieżowce</div>
+<div class="t" style="left:4.2606%;top:40.2145%;width:91.5081%;height:23.0027%;font-size:5.2709cqw;font-weight:700;color:#0a2a4a;text-align:left;line-height:1.05;letter-spacing:0.025em;">Wieżowce</div>
 <div class="t" style="left:4.2606%;top:67.0241%;width:58.5652%;height:13.9410%;font-size:1.4641cqw;font-weight:400;color:#0b4a55;text-align:left;line-height:1.4;letter-spacing:0.025em;">Wieże mieszkalne i hotelowe: elewacje, tarasy rekreacyjne i wnętrza dla Unreal Engine i Unity.</div>
 </section>
 <section class="sec" style="aspect-ratio:1366.0/5470;background:#8cc8f6">
@@ -502,7 +504,7 @@
 <main class="page" id="p-architektura" data-title="Architektura" hidden>
 <section class="sec" style="aspect-ratio:1366.0/385;background:#8cc8f6">
 <div class="t" style="left:4.2606%;top:31.1688%;width:43.9239%;height:4.3636%;font-size:1.0249cqw;font-weight:700;color:#ffffff;text-align:left;line-height:1;letter-spacing:0.025em;">MODELE 3D</div>
-<div class="t" style="left:4.2606%;top:38.9610%;width:91.5081%;height:22.2857%;font-size:5.2709cqw;font-weight:700;color:#ffffff;text-align:left;line-height:1.05;letter-spacing:0.025em;">Architektura</div>
+<div class="t" style="left:4.2606%;top:38.9610%;width:91.5081%;height:22.2857%;font-size:5.2709cqw;font-weight:700;color:#0a2a4a;text-align:left;line-height:1.05;letter-spacing:0.025em;">Architektura</div>
 <div class="t" style="left:4.2606%;top:64.9351%;width:58.5652%;height:13.5065%;font-size:1.4641cqw;font-weight:400;color:#0b4a55;text-align:left;line-height:1.4;letter-spacing:0.025em;">Budynki mieszkalne, z zewnątrz i od środka, modelowane do aplikacji sprzedażowych czasu rzeczywistego.</div>
 </section>
 <section class="sec" style="aspect-ratio:1366.0/786;background:#8cc8f6">
@@ -572,44 +574,28 @@
 <main class="page" id="p-zjezdzalnie" data-title="Zjeżdżalnie" hidden>
 <section class="sec" style="aspect-ratio:1366.0/385;background:#8cc8f6">
 <div class="t" style="left:4.2606%;top:31.1688%;width:43.9239%;height:4.3636%;font-size:1.0249cqw;font-weight:700;color:#ffffff;text-align:left;line-height:1;letter-spacing:0.025em;">MODELE 3D</div>
-<div class="t" style="left:4.2606%;top:38.9610%;width:91.5081%;height:22.2857%;font-size:5.2709cqw;font-weight:700;color:#ffffff;text-align:left;line-height:1.05;letter-spacing:0.025em;">Zjeżdżalnie i place zabaw</div>
+<div class="t" style="left:4.2606%;top:38.9610%;width:91.5081%;height:22.2857%;font-size:5.2709cqw;font-weight:700;color:#0a2a4a;text-align:left;line-height:1.05;letter-spacing:0.025em;">Zjeżdżalnie i place zabaw</div>
 <div class="t" style="left:4.2606%;top:64.9351%;width:58.5652%;height:13.5065%;font-size:1.4641cqw;font-weight:400;color:#0b4a55;text-align:left;line-height:1.4;letter-spacing:0.025em;">Zjeżdżalnie wodne, wieże zjeżdżalni i wodne place zabaw: modele produkcyjne i wizualizacje.</div>
 </section>
-<section class="sec" style="aspect-ratio:1366.0/768;background:#8cc8f6">
-<div class="m" style="left:7.4780%;top:7.8125%;width:85.0439%;height:90.3034%;"><img src="https://witkowskimich.my.canva.site/_assets/media/a4ae7c21e63718a4d2f18d68937d5df7.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:-5.5153%;width:100.0000%;height:109.7155%;"></div>
-<div class="t" style="left:7.4780%;top:3.1250%;width:91.5081%;height:3.3555%;font-size:1.6105cqw;font-weight:700;color:#0b4a55;text-align:left;line-height:1.1;letter-spacing:0.025em;">Katar · 2025 · Grasshopper / Blender</div>
-</section>
-<section class="sec" style="aspect-ratio:1366.0/768;background:#8cc8f6">
-<div class="m" style="left:7.4780%;top:0.6380%;width:85.0439%;height:98.7279%;"><img src="https://witkowskimich.my.canva.site/_assets/media/4f5a9132ea6679bde6bcac3cff4baf52.jpg" alt="" loading="lazy" decoding="async" style="left:-0.6318%;top:-3.4343%;width:100.6318%;height:104.3285%;"></div>
-</section>
-<section class="sec" style="aspect-ratio:1366.0/1504;background:#8cc8f6">
-<div class="m" style="left:7.4780%;top:1.3298%;width:85.0439%;height:47.6463%;"><img src="https://witkowskimich.my.canva.site/_assets/media/bcbcbe7d259818e2680a5d46cd0a03fb.jpg" alt="Wizualizacja kompleksu zjeżdżalni wodnych – Beius, widok z góry" loading="lazy" decoding="async" style="left:0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></div>
-<div class="m" style="left:7.4780%;top:51.0638%;width:85.0439%;height:47.6463%;"><img src="https://witkowskimich.my.canva.site/_assets/media/a37125512102194f67254260cf3af777.jpg" alt="Wizualizacja zjeżdżalni wodnych – Beius, zbliżenie na rury" loading="lazy" decoding="async" style="left:0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></div>
-</section>
-<section class="sec" style="aspect-ratio:1366.0/768;background:#8cc8f6">
-<div class="m" style="left:7.4780%;top:5.9635%;width:85.0439%;height:88.0716%;"><img src="https://witkowskimich.my.canva.site/_assets/media/b90c946e57fe75ea5634c02dadeb0641.jpg" alt="" loading="lazy" decoding="async" style="left:-0.1360%;top:-3.2585%;width:100.2712%;height:103.2585%;"></div>
-</section>
-<section class="sec" style="aspect-ratio:1366.0/768;background:#8cc8f6">
-<div class="m" style="left:7.4780%;top:2.5130%;width:85.0439%;height:94.9622%;"><img src="https://witkowskimich.my.canva.site/_assets/media/dcfabfbc60bc9aa83213bd55060f2a78.jpg" alt="" loading="lazy" decoding="async" style="left:-1.1053%;top:0.0000%;width:101.8043%;height:100.0000%;"></div>
-</section>
-<section class="sec" style="aspect-ratio:1366.0/768;background:#8cc8f6">
-<div class="m" style="left:7.4780%;top:4.6224%;width:85.0439%;height:90.7448%;"><img src="https://witkowskimich.my.canva.site/_assets/media/502f08a655ce6216de7c74b145e89484.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:-3.1840%;width:100.0000%;height:105.7094%;"></div>
-</section>
-<section class="sec" style="aspect-ratio:1366.0/768;background:#8cc8f6">
-<div class="m" style="left:7.4780%;top:2.6172%;width:85.0439%;height:94.7630%;"><img src="https://witkowskimich.my.canva.site/_assets/media/e9d942748c5bba81211643ec22ecdb7b.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:-3.5368%;width:100.0000%;height:106.6806%;"></div>
-</section>
-<section class="sec" style="aspect-ratio:1366.0/768;background:#8cc8f6">
-<div class="m" style="left:7.4780%;top:4.1927%;width:85.0439%;height:91.6289%;"><img src="https://witkowskimich.my.canva.site/_assets/media/b38300085a3b4c250f2d8829cc7d3ccd.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:-0.9933%;width:100.0000%;height:104.2077%;"></div>
-</section>
-<section class="sec" style="aspect-ratio:1366.0/1585;background:#8cc8f6">
-<div class="m" style="left:7.4780%;top:1.2618%;width:85.0439%;height:40.4625%;"><img src="https://witkowskimich.my.canva.site/_assets/media/5fe49c024531cfded483f412da3d2fae.jpg" alt="" loading="lazy" decoding="async" style="left:-0.5604%;top:-5.7677%;width:100.5604%;height:112.9574%;"></div>
-<div class="m" style="left:7.4780%;top:43.8486%;width:85.0439%;height:46.8164%;"><img src="https://witkowskimich.my.canva.site/_assets/media/17ea3b62ec03b918c03091ffd54c31ee.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></div>
-<div class="t" style="left:63.2394%;top:94.0063%;width:29.2826%;height:1.3628%;font-size:1.3177cqw;font-weight:700;color:#0a9a92;text-align:right;line-height:1;letter-spacing:0.025em;"><a class="next" href="#/realizacje">Dalej: Realizacje →</a></div>
+<section class="sec" style="aspect-ratio:1366.0/8320;background:#8cc8f6">
+<div class="t" style="left:7.4780%;top:0.2885%;width:91.5081%;height:0.3097%;font-size:1.6105cqw;font-weight:700;color:#0b4a55;text-align:left;line-height:1.1;letter-spacing:0.025em;">Katar · 2025 · Grasshopper / Blender</div>
+<div class="m" style="left:7.4780%;top:0.7184%;width:85.0439%;height:8.3357%;"><img src="https://witkowskimich.my.canva.site/_assets/media/a4ae7c21e63718a4d2f18d68937d5df7.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:-5.5153%;width:100.0000%;height:109.7155%;"></div>
+<div class="m" style="left:7.4780%;top:9.4387%;width:85.0439%;height:9.1133%;"><img src="https://witkowskimich.my.canva.site/_assets/media/4f5a9132ea6679bde6bcac3cff4baf52.jpg" alt="" loading="lazy" decoding="async" style="left:-0.6318%;top:-3.4343%;width:100.6318%;height:104.3285%;"></div>
+<div class="m" style="left:7.4780%;top:18.9367%;width:85.0439%;height:8.6130%;"><img src="https://witkowskimich.my.canva.site/_assets/media/bcbcbe7d259818e2680a5d46cd0a03fb.jpg" alt="Wizualizacja kompleksu zjeżdżalni wodnych – Beius, widok z góry" loading="lazy" decoding="async" style="left:0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></div>
+<div class="m" style="left:7.4780%;top:27.9343%;width:85.0439%;height:8.6130%;"><img src="https://witkowskimich.my.canva.site/_assets/media/a37125512102194f67254260cf3af777.jpg" alt="Wizualizacja zjeżdżalni wodnych – Beius, zbliżenie na rury" loading="lazy" decoding="async" style="left:0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></div>
+<div class="m" style="left:7.4780%;top:36.9319%;width:85.0439%;height:8.1297%;"><img src="https://witkowskimich.my.canva.site/_assets/media/b90c946e57fe75ea5634c02dadeb0641.jpg" alt="" loading="lazy" decoding="async" style="left:-0.1360%;top:-3.2585%;width:100.2712%;height:103.2585%;"></div>
+<div class="m" style="left:7.4780%;top:45.4462%;width:85.0439%;height:8.7657%;"><img src="https://witkowskimich.my.canva.site/_assets/media/dcfabfbc60bc9aa83213bd55060f2a78.jpg" alt="" loading="lazy" decoding="async" style="left:-1.1053%;top:0.0000%;width:101.8043%;height:100.0000%;"></div>
+<div class="m" style="left:7.4780%;top:54.5965%;width:85.0439%;height:8.3764%;"><img src="https://witkowskimich.my.canva.site/_assets/media/502f08a655ce6216de7c74b145e89484.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:-3.1840%;width:100.0000%;height:105.7094%;"></div>
+<div class="m" style="left:7.4780%;top:63.3576%;width:85.0439%;height:8.7474%;"><img src="https://witkowskimich.my.canva.site/_assets/media/e9d942748c5bba81211643ec22ecdb7b.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:-3.5368%;width:100.0000%;height:106.6806%;"></div>
+<div class="m" style="left:7.4780%;top:72.4896%;width:85.0439%;height:8.4581%;"><img src="https://witkowskimich.my.canva.site/_assets/media/b38300085a3b4c250f2d8829cc7d3ccd.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:-0.9933%;width:100.0000%;height:104.2077%;"></div>
+<div class="m" style="left:7.4780%;top:81.3322%;width:85.0439%;height:7.7083%;"><img src="https://witkowskimich.my.canva.site/_assets/media/5fe49c024531cfded483f412da3d2fae.jpg" alt="" loading="lazy" decoding="async" style="left:-0.5604%;top:-5.7677%;width:100.5604%;height:112.9574%;"></div>
+<div class="m" style="left:7.4780%;top:89.4251%;width:85.0439%;height:8.9187%;"><img src="https://witkowskimich.my.canva.site/_assets/media/17ea3b62ec03b918c03091ffd54c31ee.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></div>
+<div class="t" style="left:63.2394%;top:99.0170%;width:29.2826%;height:0.2596%;font-size:1.3177cqw;font-weight:700;color:#0a9a92;text-align:right;line-height:1;letter-spacing:0.025em;"><a class="next" href="#/realizacje">Dalej: Realizacje →</a></div>
 </section>
 </main>
 <main class="page" id="p-narzedzia-proceduralne" data-title="Narzędzia proceduralne" hidden>
 <section class="sec" style="aspect-ratio:1366.0/383;background:#8cc8f6">
-<div class="t" style="left:4.2606%;top:31.3316%;width:91.5081%;height:22.4021%;font-size:5.2709cqw;font-weight:700;color:#ffffff;text-align:left;line-height:1.05;letter-spacing:0.025em;">Narzędzia proceduralne</div>
+<div class="t" style="left:4.2606%;top:31.3316%;width:91.5081%;height:22.4021%;font-size:5.2709cqw;font-weight:700;color:#0a2a4a;text-align:left;line-height:1.05;letter-spacing:0.025em;">Narzędzia proceduralne</div>
 <div class="t" style="left:4.2606%;top:61.0966%;width:58.5652%;height:6.2663%;font-size:1.4641cqw;font-weight:400;color:#0b4a55;text-align:left;line-height:1.4;letter-spacing:0.025em;">Generatory Geometry Nodes i dodatki do Blendera do produkcji i modeli 3D.</div>
 <div class="t" style="left:4.2606%;top:24.0209%;width:43.9239%;height:4.3864%;font-size:1.0249cqw;font-weight:700;color:#ffffff;text-align:left;line-height:1;letter-spacing:0.025em;">NARZĘDZIA I DODATKI</div>
 </section>
@@ -657,7 +643,7 @@
 </main>
 <main class="page" id="p-realizacje" data-title="Realizacje" hidden>
 <section class="sec" style="aspect-ratio:1366.0/768;background:#8cc8f6">
-<div class="t" style="left:4.2606%;top:15.6250%;width:91.5081%;height:11.1719%;font-size:5.2709cqw;font-weight:700;color:#ffffff;text-align:left;line-height:1.05;letter-spacing:0.025em;">Realizacje</div>
+<div class="t" style="left:4.2606%;top:15.6250%;width:91.5081%;height:11.1719%;font-size:5.2709cqw;font-weight:700;color:#0a2a4a;text-align:left;line-height:1.05;letter-spacing:0.025em;">Realizacje</div>
 
 </section>
 </main>
@@ -666,7 +652,7 @@
 <div class="t" style="left:4.2606%;top:33.8542%;width:40.3869%;height:3.6719%;font-size:1.7570cqw;font-weight:400;color:#0b4a55;text-align:left;line-height:1.4;letter-spacing:0em;">Warszawa</div>
 <div class="t" style="left:4.2606%;top:40.2645%;width:40.3869%;height:3.7198%;font-size:1.7570cqw;font-weight:400;color:#0b4a55;text-align:left;line-height:1.4;letter-spacing:0em;">tel. 792-492-920</div>
 <div class="t" style="left:4.2606%;top:46.7228%;width:40.3869%;height:3.7198%;font-size:1.7570cqw;font-weight:700;color:#0a9a92;text-align:left;line-height:1.4;letter-spacing:0em;">witkowski.mich@gmail.com</div>
-<div class="t" style="left:4.2606%;top:16.9271%;width:58.5652%;height:11.1719%;font-size:5.2709cqw;font-weight:700;color:#ffffff;text-align:left;line-height:1.05;letter-spacing:0em;">Kontakt</div>
+<div class="t" style="left:4.2606%;top:16.9271%;width:58.5652%;height:11.1719%;font-size:5.2709cqw;font-weight:700;color:#0a2a4a;text-align:left;line-height:1.05;letter-spacing:0em;">Kontakt</div>
 </section>
 </main>
 <footer>© Michał Witkowski · witkowski.mich@gmail.com</footer>
