@@ -65,6 +65,8 @@
   .cta { display: inline-block; background: #0a9a92; color: #fff; font-weight: 700; font-size: 18px;
          padding: 11px 22px; border-radius: 999px; text-decoration: none; position: relative; z-index: 3; }
   .cta:hover { background: #088a83; }
+  #hero { -webkit-user-select: none; user-select: none; }
+  #hero .label, #hero h1, #hero .sub { -webkit-user-select: text; user-select: text; }
   #fx { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 2; }
   #hero.portrait #stage { width: 768px; height: 1300px; }
   #hero.portrait .slide { left: -40px; top: 40px; width: 848px; height: 474px; }
@@ -104,7 +106,7 @@
   // ---------- WebGL: realistyczna błonka mydlana (interferencja cienkiej warstwy) ----------
   const ctx = cv.getContext('2d');
   const gl = null;
-  const MAXB = 60;
+  const MAXB = 128;
   // realistyczne bańki wyrenderowane w Blenderze (odbicia, błonka z kolorowym szumem, odblaski)
   const SPR = [], SPRB = [];
   const base = (document.currentScript && document.currentScript.dataset.base) || 'sprites/';
@@ -279,6 +281,8 @@
   addEventListener('pointermove', e => setM(...rel(e.clientX, e.clientY)), { passive: true });
   addEventListener('pointerdown', e => setM(...rel(e.clientX, e.clientY)), { passive: true });
   addEventListener('touchmove', e => { const p = e.touches[0]; if (p) setM(...rel(p.clientX, p.clientY)); }, { passive: true });
+  // klik w tło nie zaznacza tekstu
+  hero.addEventListener('mousedown', e => { if (!e.target.closest('p, h1, a, .cta')) { e.preventDefault(); const s = getSelection(); if (s && !s.isCollapsed) s.removeAllRanges(); } });
   // klik w tło (nie w tekst) – nowe bańki wylatują z miejsca kliknięcia
   hero.addEventListener('pointerdown', e => {
     if (e.target.closest('p, h1, a, .cta')) return;
