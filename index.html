@@ -41,6 +41,29 @@
   .t a { color: inherit; text-decoration: none; }
   .t a:hover { text-decoration: underline; }
   .m { overflow: hidden; border-radius: 1.6cqw; }  /* zaokrąglone narożniki jak w Canvie (16,3 px przy szerokości 1024 px) */
+  /* ---------- Realizacje: karuzele rysunków i zdjęć + podgląd z powiększeniem ---------- */
+  .real { padding: 0 4.26cqw 5cqw; }
+  .rp { margin: 0 0 4.4cqw; }
+  .rh { font-size: max(1.61cqw, 20px); font-weight: 700; color: #0b4a55; letter-spacing: .025em; margin: 0 0 1.2cqw; }
+  .rcar { position: relative; }
+  .rrow { display: flex; gap: 14px; overflow-x: auto; scroll-snap-type: x mandatory; scroll-behavior: smooth; padding-bottom: 6px; scrollbar-width: thin; }
+  .rc { flex: 0 0 auto; margin: 0; scroll-snap-align: start; height: clamp(190px, 21cqw, 300px); width: calc(clamp(190px, 21cqw, 300px) * var(--r)); cursor: zoom-in; position: relative; }
+  .rc img { width: 100%; height: 100%; object-fit: cover; display: block; border-radius: 1.6cqw; background: #fff; }
+  .rc figcaption { position: absolute; left: 0; right: 0; bottom: 0; padding: 18px 12px 9px; font-size: 12.5px; font-weight: 700; color: #fff;
+                   background: linear-gradient(transparent, rgba(6, 30, 50, .72)); border-radius: 0 0 1.6cqw 1.6cqw; }
+  .rbt { position: absolute; top: 50%; transform: translateY(-50%); z-index: 2; width: 44px; height: 44px; border-radius: 50%; border: 0; cursor: pointer;
+         background: #0a9a92; color: #fff; font-size: 30px; line-height: 40px; box-shadow: 0 4px 14px rgba(10, 42, 74, .25); }
+  .rbt.prev { left: -14px; } .rbt.next { right: -14px; } .rbt[disabled] { opacity: 0; pointer-events: none; }
+  @media (max-width: 700px) { .rbt { display: none; } }
+  #lb { position: fixed; inset: 0; z-index: 100; background: rgba(6, 20, 34, .94); display: none; }
+  #lb.on { display: block; }
+  #lb .lbv { position: absolute; inset: 0; overflow: auto; display: grid; place-items: center; cursor: zoom-in; }
+  #lb.zoom .lbv { place-items: start; cursor: grab; } #lb.drag .lbv { cursor: grabbing; }
+  #lb img { display: block; max-width: 94vw; max-height: 88vh; user-select: none; -webkit-user-drag: none; background: #fff; }
+  #lb.zoom img { max-width: none; max-height: none; }
+  #lb .lbx, #lb .lbp, #lb .lbn { position: fixed; z-index: 2; border: 0; cursor: pointer; color: #fff; background: rgba(10, 154, 146, .9); border-radius: 50%; width: 48px; height: 48px; font-size: 30px; line-height: 44px; }
+  #lb .lbx { top: 14px; right: 14px; font-size: 26px; } #lb .lbp { left: 14px; top: 50%; } #lb .lbn { right: 14px; top: 50%; }
+  #lb .lbc { position: fixed; left: 50%; transform: translateX(-50%); bottom: 14px; max-width: 90vw; padding: 7px 16px; border-radius: 999px; background: rgba(6, 20, 34, .82); color: #fff; font-size: 14px; font-weight: 700; pointer-events: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .m img, .m video { position: absolute; display: block; max-width: none; }
   #hero { position: relative; width: 100%; height: calc(100vh - 50px); height: calc(100svh - 50px); min-height: 420px; overflow: hidden; background: #8cc8f6; }
   #hero .cta { cursor: pointer; }
@@ -642,9 +665,58 @@
 </section>
 </main>
 <main class="page" id="p-realizacje" data-title="Realizacje" hidden>
-<section class="sec" style="aspect-ratio:1366.0/768;background:#8cc8f6">
-<div class="t" style="left:4.2606%;top:15.6250%;width:91.5081%;height:11.1719%;font-size:5.2709cqw;font-weight:700;color:#0a2a4a;text-align:left;line-height:1.05;letter-spacing:0.025em;">Realizacje</div>
-
+<section class="sec" style="aspect-ratio:1366.0/300;background:#8cc8f6">
+<div class="t" style="left:4.2606%;top:40%;width:91.5081%;height:30%;font-size:5.2709cqw;font-weight:700;color:#0a2a4a;text-align:left;line-height:1.05;letter-spacing:0.025em;">Realizacje</div>
+</section>
+<section class="real">
+<div class="rp">
+<h2 class="rh">Lipnik</h2>
+<div class="rcar"><button class="rbt prev" aria-label="Poprzednie">‹</button><div class="rrow">
+<figure class="rc" style="--r:1.1831"><img src="realizacje/lipnik/lipnik-2_m.jpg" data-full="realizacje/lipnik/lipnik-2.jpg" alt="Lipnik" loading="lazy" decoding="async"></figure>
+<figure class="rc" style="--r:2.1127"><img src="realizacje/lipnik/lipnik-zdj-1_m.jpg" data-full="realizacje/lipnik/lipnik-zdj-1.jpg" alt="Lipnik" loading="lazy" decoding="async"></figure>
+<figure class="rc" style="--r:1.3333"><img src="realizacje/lipnik/plbx0465_m.jpg" data-full="realizacje/lipnik/plbx0465.jpg" alt="Lipnik" loading="lazy" decoding="async"></figure>
+<figure class="rc" style="--r:1.6327"><img src="realizacje/lipnik/plac-nr-5-wizualizacja-1_m.jpg" data-full="realizacje/lipnik/plac-nr-5-wizualizacja-1.jpg" alt="Plac Nr 5 - Wizualizacja 1" loading="lazy" decoding="async"><figcaption>Plac Nr 5 - Wizualizacja 1</figcaption></figure>
+<figure class="rc" style="--r:1.6021"><img src="realizacje/lipnik/plac-nr-5-wizualizacja-2_m.jpg" data-full="realizacje/lipnik/plac-nr-5-wizualizacja-2.jpg" alt="Plac Nr 5 - Wizualizacja 2" loading="lazy" decoding="async"><figcaption>Plac Nr 5 - Wizualizacja 2</figcaption></figure>
+<figure class="rc" style="--r:1.4141"><img src="realizacje/lipnik/01-plac-nr-5-rysunek-zestawczy_m.jpg" data-full="realizacje/lipnik/01-plac-nr-5-rysunek-zestawczy.jpg" alt="01. Plac Nr 5 - Rysunek Zestawczy" loading="lazy" decoding="async"><figcaption>01. Plac Nr 5 - Rysunek Zestawczy</figcaption></figure>
+<figure class="rc" style="--r:1.4141"><img src="realizacje/lipnik/03-a-plac-nr-5-zestawienie-slupow-konstrukcyjnych_m.jpg" data-full="realizacje/lipnik/03-a-plac-nr-5-zestawienie-slupow-konstrukcyjnych.jpg" alt="03.A. Plac Nr 5 - Zestawienie słupów konstrukcyjnych" loading="lazy" decoding="async"><figcaption>03.A. Plac Nr 5 - Zestawienie słupów konstrukcyjnych</figcaption></figure>
+<figure class="rc" style="--r:1.4141"><img src="realizacje/lipnik/04-a-plac-nr-5-zestawienie-balustrad_m.jpg" data-full="realizacje/lipnik/04-a-plac-nr-5-zestawienie-balustrad.jpg" alt="04.A. Plac Nr 5 - Zestawienie Balustrad" loading="lazy" decoding="async"><figcaption>04.A. Plac Nr 5 - Zestawienie Balustrad</figcaption></figure>
+<figure class="rc" style="--r:0.7072"><img src="realizacje/lipnik/04-c-plac-nr-5-detal-drabinki_m.jpg" data-full="realizacje/lipnik/04-c-plac-nr-5-detal-drabinki.jpg" alt="04.C. Plac Nr 5 - Detal Drabinki" loading="lazy" decoding="async"><figcaption>04.C. Plac Nr 5 - Detal Drabinki</figcaption></figure>
+<figure class="rc" style="--r:1.4141"><img src="realizacje/lipnik/05-plac-nr-5-zestawienie-wypelnien-balustrad_m.jpg" data-full="realizacje/lipnik/05-plac-nr-5-zestawienie-wypelnien-balustrad.jpg" alt="05. Plac Nr 5 - Zestawienie Wypełnień Balustrad" loading="lazy" decoding="async"><figcaption>05. Plac Nr 5 - Zestawienie Wypełnień Balustrad</figcaption></figure>
+<figure class="rc" style="--r:1.4141"><img src="realizacje/lipnik/06-b-zpz2-rodzinna-podpory_m.jpg" data-full="realizacje/lipnik/06-b-zpz2-rodzinna-podpory.jpg" alt="06.B. ZPZ2 - Rodzinna - Podpory" loading="lazy" decoding="async"><figcaption>06.B. ZPZ2 - Rodzinna - Podpory</figcaption></figure>
+<figure class="rc" style="--r:1.4141"><img src="realizacje/lipnik/07-a-zpz1-anaconda-podpory_m.jpg" data-full="realizacje/lipnik/07-a-zpz1-anaconda-podpory.jpg" alt="07.A. ZPZ1 - Anaconda - Podpory" loading="lazy" decoding="async"><figcaption>07.A. ZPZ1 - Anaconda - Podpory</figcaption></figure>
+<figure class="rc" style="--r:1.4141"><img src="realizacje/lipnik/08-plac-nr-5-doprowadzenie-wody_m.jpg" data-full="realizacje/lipnik/08-plac-nr-5-doprowadzenie-wody.jpg" alt="08. Plac Nr 5 - Doprowadzenie wody" loading="lazy" decoding="async"><figcaption>08. Plac Nr 5 - Doprowadzenie wody</figcaption></figure>
+</div><button class="rbt next" aria-label="Następne">›</button></div>
+</div>
+<div class="rp">
+<h2 class="rh">Głubczyce</h2>
+<div class="rcar"><button class="rbt prev" aria-label="Poprzednie">‹</button><div class="rrow">
+<figure class="rc" style="--r:1.4564"><img src="realizacje/glubczyce/glubczyce-5_m.jpg" data-full="realizacje/glubczyce/glubczyce-5.jpg" alt="Głubczyce" loading="lazy" decoding="async"></figure>
+<figure class="rc" style="--r:1.4141"><img src="realizacje/glubczyce/01-fundamenty-plansza-wymiarowa-a3_m.jpg" data-full="realizacje/glubczyce/01-fundamenty-plansza-wymiarowa-a3.jpg" alt="01. Fundamenty - Plansza wymiarowa" loading="lazy" decoding="async"><figcaption>01. Fundamenty - Plansza wymiarowa</figcaption></figure>
+<figure class="rc" style="--r:1.4141"><img src="realizacje/glubczyce/02-rysunek-zestawczy-a3_m.jpg" data-full="realizacje/glubczyce/02-rysunek-zestawczy-a3.jpg" alt="02. Rysunek Zestawczy" loading="lazy" decoding="async"><figcaption>02. Rysunek Zestawczy</figcaption></figure>
+<figure class="rc" style="--r:1.4141"><img src="realizacje/glubczyce/03-slupy-cz-i-a2_m.jpg" data-full="realizacje/glubczyce/03-slupy-cz-i-a2.jpg" alt="03. Słupy Cz. I" loading="lazy" decoding="async"><figcaption>03. Słupy Cz. I</figcaption></figure>
+<figure class="rc" style="--r:1.4141"><img src="realizacje/glubczyce/08-balustrady-i-pochwyty-cz-i-a3_m.jpg" data-full="realizacje/glubczyce/08-balustrady-i-pochwyty-cz-i-a3.jpg" alt="08. Balustrady i pochwyty Cz. I" loading="lazy" decoding="async"><figcaption>08. Balustrady i pochwyty Cz. I</figcaption></figure>
+<figure class="rc" style="--r:1.4141"><img src="realizacje/glubczyce/ap2-anaconda-podpory-a3_m.jpg" data-full="realizacje/glubczyce/ap2-anaconda-podpory-a3.jpg" alt="AP2. Anaconda - Podpory" loading="lazy" decoding="async"><figcaption>AP2. Anaconda - Podpory</figcaption></figure>
+<figure class="rc" style="--r:1.4143"><img src="realizacje/glubczyce/rp1-rodzinna-plan-zjezdzalni_m.jpg" data-full="realizacje/glubczyce/rp1-rodzinna-plan-zjezdzalni.jpg" alt="RP1. Rodzinna - Plan zjeżdżalni" loading="lazy" decoding="async"><figcaption>RP1. Rodzinna - Plan zjeżdżalni</figcaption></figure>
+</div><button class="rbt next" aria-label="Następne">›</button></div>
+</div>
+<div class="rp">
+<h2 class="rh">Cieplice</h2>
+<div class="rcar"><button class="rbt prev" aria-label="Poprzednie">‹</button><div class="rrow">
+<figure class="rc" style="--r:1.3333"><img src="realizacje/cieplice/cieplice-2_m.jpg" data-full="realizacje/cieplice/cieplice-2.jpg" alt="Cieplice" loading="lazy" decoding="async"></figure>
+</div><button class="rbt next" aria-label="Następne">›</button></div>
+</div>
+<div class="rp">
+<h2 class="rh">Armatka</h2>
+<div class="rcar"><button class="rbt prev" aria-label="Poprzednie">‹</button><div class="rrow">
+<figure class="rc" style="--r:0.7072"><img src="realizacje/armatka/amnon-armatka-2_m.jpg" data-full="realizacje/armatka/amnon-armatka-2.jpg" alt="Armatka" loading="lazy" decoding="async"></figure>
+</div><button class="rbt next" aria-label="Następne">›</button></div>
+</div>
+<div class="rp">
+<h2 class="rh">Ryba</h2>
+<div class="rcar"><button class="rbt prev" aria-label="Poprzednie">‹</button><div class="rrow">
+<figure class="rc" style="--r:1.4141"><img src="realizacje/ryba/amnon-ryba_m.jpg" data-full="realizacje/ryba/amnon-ryba.jpg" alt="Ryba" loading="lazy" decoding="async"></figure>
+</div><button class="rbt next" aria-label="Następne">›</button></div>
+</div>
 </section>
 </main>
 <main class="page" id="p-kontakt" data-title="Kontakt" hidden>
@@ -655,6 +727,54 @@
 <div class="t" style="left:4.2606%;top:16.9271%;width:58.5652%;height:11.1719%;font-size:5.2709cqw;font-weight:700;color:#0a2a4a;text-align:left;line-height:1.05;letter-spacing:0em;">Kontakt</div>
 </section>
 </main>
+<div id="lb" aria-hidden="true"><div class="lbv"><img alt=""></div><button class="lbx" aria-label="Zamknij">×</button><button class="lbp" aria-label="Poprzedni">‹</button><button class="lbn" aria-label="Następny">›</button><div class="lbc"></div></div>
+<script>
+(() => {
+  // karuzele: strzałki przewijają o szerokość widoku
+  document.querySelectorAll('.rcar').forEach(c => {
+    const row = c.querySelector('.rrow'), p = c.querySelector('.prev'), n = c.querySelector('.next');
+    const upd = () => { p.disabled = row.scrollLeft < 5; n.disabled = row.scrollLeft + row.clientWidth > row.scrollWidth - 5; };
+    p.onclick = () => row.scrollBy({ left: -row.clientWidth * .8 }); n.onclick = () => row.scrollBy({ left: row.clientWidth * .8 });
+    row.addEventListener('scroll', upd, { passive: true }); addEventListener('resize', upd); setTimeout(upd, 300);
+    new ResizeObserver(upd).observe(row);
+  });
+  // podgląd: klik = pełny rozmiar, klik w obraz = powiększenie w miejscu kliknięcia, przeciąganie = przesuwanie
+  const lb = document.getElementById('lb'), v = lb.querySelector('.lbv'), im = v.querySelector('img'), cap = lb.querySelector('.lbc');
+  let list = [], idx = 0;
+  function show(i) {
+    idx = (i + list.length) % list.length; const f = list[idx];
+    lb.classList.remove('zoom'); im.src = f.querySelector('img').dataset.full;
+    const fc = f.querySelector('figcaption'); cap.textContent = (fc ? fc.textContent + '  ·  ' : '') + (idx + 1) + ' / ' + list.length;
+    lb.querySelector('.lbp').style.display = lb.querySelector('.lbn').style.display = list.length > 1 ? '' : 'none';
+  }
+  document.querySelectorAll('.rc').forEach(f => f.addEventListener('click', () => {
+    list = [...f.closest('.rrow').querySelectorAll('.rc')]; show(list.indexOf(f));
+    lb.classList.add('on'); document.documentElement.style.overflow = 'hidden';
+  }));
+  const close = () => { lb.classList.remove('on', 'zoom'); document.documentElement.style.overflow = ''; im.removeAttribute('src'); };
+  lb.querySelector('.lbx').onclick = close;
+  lb.querySelector('.lbp').onclick = () => show(idx - 1); lb.querySelector('.lbn').onclick = () => show(idx + 1);
+  addEventListener('keydown', e => { if (!lb.classList.contains('on')) return;
+    if (e.key === 'Escape') close(); else if (e.key === 'ArrowLeft') show(idx - 1); else if (e.key === 'ArrowRight') show(idx + 1); });
+  let moved = false, drag = null;
+  v.addEventListener('pointerdown', e => { if (e.pointerType !== 'mouse' || !lb.classList.contains('zoom')) return;
+    drag = { x: e.clientX, y: e.clientY, l: v.scrollLeft, t: v.scrollTop }; moved = false; lb.classList.add('drag'); });
+  addEventListener('pointermove', e => { if (!drag) return; const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+    if (Math.abs(dx) + Math.abs(dy) > 4) moved = true; v.scrollLeft = drag.l - dx; v.scrollTop = drag.t - dy; });
+  addEventListener('pointerup', () => { drag = null; lb.classList.remove('drag'); });
+  v.addEventListener('click', e => {
+    if (moved) { moved = false; return; }
+    if (e.target !== im) { if (!lb.classList.contains('zoom')) close(); return; }
+    if (lb.classList.contains('zoom')) { lb.classList.remove('zoom'); return; }
+    const r = im.getBoundingClientRect(), fx = (e.clientX - r.left) / r.width, fy = (e.clientY - r.top) / r.height;
+    lb.classList.add('zoom');
+    const w = Math.max(im.naturalWidth, r.width * 2.2); im.style.width = w + 'px';
+    v.scrollLeft = fx * w - innerWidth / 2; v.scrollTop = fy * im.offsetHeight - innerHeight / 2;
+  });
+  // po wyjściu z powiększenia wraca dopasowanie do ekranu
+  new MutationObserver(() => { if (!lb.classList.contains('zoom')) im.style.width = ''; }).observe(lb, { attributes: true, attributeFilter: ['class'] });
+})();
+</script>
 <footer>© Michał Witkowski · witkowski.mich@gmail.com</footer>
 </div>
 <script>
