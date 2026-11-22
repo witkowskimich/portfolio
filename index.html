@@ -646,6 +646,10 @@
 (() => {
   const nav = document.getElementById('nav');
   document.getElementById('burger').onclick = () => nav.classList.toggle('open');
+  // obrazki podstrony ładowane od razu (nie dopiero przy przewijaniu)
+  function eager(m) { if (m && !m.dataset.eager) { m.dataset.eager = 1; m.querySelectorAll('img[loading="lazy"]').forEach(i => { i.loading = 'eager'; }); } }
+  // najechanie na pozycję menu = obrazki tej podstrony zaczynają się ładować w tle
+  document.querySelectorAll('a[href^="#/"]').forEach(a => { const go = () => eager(document.getElementById('p-' + a.getAttribute('href').slice(2))); a.addEventListener('mouseenter', go); a.addEventListener('focus', go); a.addEventListener('touchstart', go, { passive: true }); });
   function route() {
     const r = (location.hash.replace(/^#\/?/, '') || '').split('?')[0];
     let found = false;
@@ -657,6 +661,7 @@
     nav.querySelectorAll('a').forEach(a => a.classList.toggle('on', a.dataset.r === (found ? r : '')));
     nav.classList.remove('open');
     const m = document.querySelector('main.page:not([hidden])');
+    eager(m);
     document.title = (m && m.dataset.title !== 'Start' ? m.dataset.title + ' – ' : '') + 'Michał Witkowski – Grafik 3D';
     document.querySelector('footer').hidden = !m || m.id === 'p-';
     window.scrollTo(0, 0);
