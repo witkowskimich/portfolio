@@ -896,7 +896,7 @@
   document.getElementById('burger').onclick = () => nav.classList.toggle('open');
   // obrazki podstron nie mają adresu w HTML (data-src) – dostają go dopiero przy otwarciu strony,
   // więc ładują się od razu w każdej przeglądarce, bez polegania na loading="lazy"
-  function load(i, pr) { if (!i.dataset.src) return; i.fetchPriority = pr; i.src = i.dataset.src; delete i.dataset.src; }
+  function load(i, pr) { if (!i.dataset.src) return; i.fetchPriority = pr; i._t = performance.now(); i.src = i.dataset.src; delete i.dataset.src; }
   function eager(m) { if (!m) return;
     m.querySelectorAll('img').forEach((i, k) => load(i, k < 6 ? 'high' : 'auto'));
     // filmy podstrony: miniatury i nagłówki dopiero teraz (nie przy starcie strony, żeby nie spowalniać baniek)
@@ -925,16 +925,25 @@
     window.scrollTo(0, 0);
   }
   // obrazek, który się nie wczytał (błąd sieci/CDN przy pierwszym wejściu), ponawia pobieranie zamiast czekać na odświeżenie
-  function retry(i) { const n = +(i.dataset.retry || 0); if (n >= 4) return; i.dataset.retry = n + 1;
-    const s = i.getAttribute('src'); if (!s) return; i.loading = 'eager';
-    setTimeout(() => { i.src = s.replace(/([?&])r=\d+&?/, '$1').replace(/[?&]$/, '') + (s.includes('?') ? '&' : '?') + 'r=' + (n + 1); }, 400 * (n + 1)); }
+  // ponowne pobranie obrazka (nowy adres = nowe zapytanie do serwera)
+  function retry(i, now) { const n = +(i.dataset.retry || 0); if (n >= 6) return; i.dataset.retry = n + 1;
+    const s = i.getAttribute('src'); if (!s) return; i._t = performance.now();
+    const go = () => { i.src = s.replace(/([?&])r=\d+&?/, '$1').replace(/[?&]$/, '') + (s.includes('?') ? '&' : '?') + 'r=' + (n + 1); };
+    if (now) go(); else setTimeout(go, 400 * (n + 1)); }
   document.addEventListener('error', e => { if (e.target.tagName === 'IMG' && e.target.closest('main.page, #hero, .hero')) retry(e.target); }, true);
-  function watchdog(m) { if (!m) return; [3000, 8000].forEach(d => setTimeout(() => { if (m.hidden) return;
-    eager(m); m.querySelectorAll('img').forEach(i => { if (i.getAttribute('src') && i.complete && !i.naturalWidth) retry(i); }); }, d)); }
-  addEventListener('hashchange', () => watchdog(document.querySelector('main.page:not([hidden])')));
+  // zawieszone pobieranie (serwer Canvy czasem nie odpowiada przez ~30 s i nie zgłasza błędu):
+  // jeśli na otwartej stronie od 2,5 s nie doszedł żaden obrazek, a są takie, które czekają dłużej, pobieramy je jeszcze raz
+  let lastDone = performance.now();
+  document.addEventListener('load', e => { if (e.target.tagName === 'IMG') lastDone = performance.now(); }, true);
+  setInterval(() => {
+    const m = document.querySelector('main.page:not([hidden])'); if (!m || document.hidden) return;
+    eager(m); const now = performance.now();
+    m.querySelectorAll('img').forEach(i => { const s = i.getAttribute('src'); if (!s) return;
+      if (i.complete && !i.naturalWidth) retry(i);
+      else if (!i.complete && now - lastDone > 2500 && now - (i._t || 0) > 2500) retry(i, true); });
+  }, 1000);
   addEventListener('hashchange', route);
   route();
-  watchdog(document.querySelector('main.page:not([hidden])'));
 })();
 </script>
 </body>
