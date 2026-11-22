@@ -29,7 +29,8 @@
     #burger { display: block; }
   }
   .wrap { padding-top: 50px; }
-  .page { container-type: inline-size; width: 100%; }
+  .page { container-type: inline-size; width: 100%; max-width: 1366px; margin: 0 auto; }
+  #p- { max-width: none; }
   .sec { position: relative; width: 100%; overflow: hidden; }
   .sec > div { position: absolute; }
   .t { white-space: pre-wrap; overflow-wrap: break-word; }
@@ -132,7 +133,7 @@
       vec2 d = (fc - b.xy) / (b.z * b2.xy);
       float dist = length(d);
       float px = 1. / b.z;
-      float soft = px + bl * .30;                       // rozmycie w jedn. promienia
+      float soft = px + bl * .12;                       // rozmycie w jedn. promienia
       if (dist >= 1. + soft*3.) continue;
       float ang = atan(d.y, d.x);
       float sd = b.w * 37.;
@@ -157,19 +158,19 @@
       // 4) odblask okna (zaokrąglony prostokąt) po stronie światła + słabszy po przeciwnej
       vec2 wv = (d - Ld*.50) * vec2(1., 1.);
       vec2 wr = vec2(dot(wv, vec2(Ld.y, -Ld.x)), dot(wv, Ld));
-      float win = smoothstep(.07 + soft*2.5, .0, length(max(abs(wr) - vec2(.13, .03), 0.))) * .38;
+      float win = smoothstep(.06 + soft*2.5, .0, length(max(abs(wr) - vec2(.11, .025), 0.))) * .28;
       float win2 = smoothstep(.16 + soft*1.5, .04, length(max(abs(-(d + Ld*.62)) - vec2(.05,.05), 0.))) * .18;
       float arc = g(dist - .84, .05 + soft) * g(facing - 1., .35) * .30;
       // 5) iskierki (tylko ostre bańki z przodu)
       vec2 sp = d - Ld * .78;
       float star = (exp(-abs(sp.x)*120.)*exp(-abs(sp.y)*10.) + exp(-abs(sp.y)*120.)*exp(-abs(sp.x)*10.)) * .6
                  + smoothstep(.04, .0, length(sp)) * .9;
-      star *= b3.y * (.7 + .3*sin(time*2.1 + sd));
+      star *= b3.y * .55;
       // złożenie (premultiplied)
-      vec3 cFilm = col * cres * 1.05;
-      float aFilm = cres * .55;
+      vec3 cFilm = col * cres * .8;
+      float aFilm = cres * .32;
       vec3 cEdge = mix(vec3(1.), col, .40) * edge;
-      float aEdge = edge * .80;
+      float aEdge = edge * .62;
       float white = clamp(win + win2 + arc + star, 0., 1.);
       vec3 c = cFilm + cEdge + vec3(white) + vec3(.92,.96,1.)*.03;
       float a = clamp(aFilm + aEdge + white + .03 + dark, 0., 1.);
@@ -198,13 +199,13 @@
 
   // ---------- fizyka bąbelków ----------
   const mouse = { x: -1e4, y: -1e4, px: -1e4, py: -1e4, vx: 0, vy: 0, on: false };
-  const B = []; const N = 22;
+  const B = []; const N = 26;
   const unit = () => Math.max(0.42, Math.min(W, H * 1.78) / 1366);
   function spawn(init) {
     const u = unit();
     // głębia: 0 = daleko (rozmyta, mała, wolna), 1 = blisko (ostra, duża)
-    const z = Math.random() < .45 ? Math.random() * .35 : .55 + Math.random() * .45;
-    const r = (z < .4 ? 14 + Math.random() * 46 : 30 + Math.pow(Math.random(), 1.4) * 105) * u;
+    const z = Math.random() < .3 ? Math.random() * .35 : .55 + Math.random() * .45;
+    const r = (z < .4 ? 10 + Math.random() * 18 : 18 + Math.pow(Math.random(), 1.8) * 52) * u;
     return { z, x: Math.random() * W, y: init ? Math.random() * H : H + r * 1.2,
       r, vx: (Math.random() - .5) * 0.8 * u, vy: -(.4 + Math.random() * .6) * u,
       seed: Math.random(), ph: Math.random() * 6.283, wob: .7 + Math.random() * .7,
@@ -235,13 +236,13 @@
       b.vy += (f[1] * .03 * u - .012 * u * (60 / (b.r / u + 30))) * dt;
       if (mouse.on) {
         const dx = b.x - mouse.x, dy = b.y - mouse.y, d = Math.hypot(dx, dy) || .01;
-        const R = b.r + 200 * u * (.5 + .5 * b.z);
+        const R = b.r + 110 * u * (.6 + .4 * b.z);
         if (d < R) {
           const k = 1 - d / R;
           const ms = Math.hypot(mouse.vx, mouse.vy);
-          b.vx += ((dx / d) * k * k * 3.2 * u * dt + mouse.vx * .09 * k * dt) * pz;
-          b.vy += ((dy / d) * k * k * 3.2 * u * dt + mouse.vy * .09 * k * dt) * pz;
-          b.sqv += k * Math.min(ms, 40) * .004;           // błonka drży od podmuchu
+          b.vx += (dx / d) * k * k * .22 * u * dt * pz;
+          b.vy += (dy / d) * k * k * .22 * u * dt * pz;
+          b.sqv += k * Math.min(ms, 30) * .0004;
         }
       }
       for (let j = i + 1; j < B.length; j++) {
@@ -250,8 +251,8 @@
           b.vx -= nx * k; b.vy -= ny * k; o.vx += nx * k; o.vy += ny * k; }
       }
       // opór powietrza (bańki są lekkie – szybko hamują)
-      b.vx *= Math.pow(.965, dt); b.vy *= Math.pow(.965, dt);
-      const sp = Math.hypot(b.vx, b.vy), mx = 22 * u; if (sp > mx) { b.vx *= mx / sp; b.vy *= mx / sp; }
+      b.vx *= Math.pow(.95, dt); b.vy *= Math.pow(.95, dt);
+      const sp = Math.hypot(b.vx, b.vy), mx = 2.2 * u; if (sp > mx) { b.vx *= mx / sp; b.vy *= mx / sp; }
       b.x += b.vx * dt * pz; b.y += b.vy * dt * pz;
       // sprężyste drżenie kształtu
       b.sqv += (-b.sq * .08) * dt; b.sqv *= Math.pow(.92, dt); b.sq += b.sqv * dt;
@@ -265,7 +266,7 @@
         const b = S[i], w = Math.sin(t * .0017 * b.wob + b.ph) * .025 + b.sq;
         fb.set([b.x * DPR, b.y * DPR, b.r * DPR, b.seed], i * 4);
         fb2.set([1 + w, 1 - w, Math.max(0, b.pop), b.spin], i * 4);
-        const blur = b.z < .4 ? .55 + (.4 - b.z) * 1.1 : Math.max(0, .75 - b.z) * .35;
+        const blur = b.z < .4 ? .35 + (.4 - b.z) * .6 : 0;
         fb3.set([Math.min(1, blur), b.z > .7 ? 1 : 0, 0, 0], i * 4);
       }
       gl.clear(gl.COLOR_BUFFER_BIT);
