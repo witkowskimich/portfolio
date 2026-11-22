@@ -98,118 +98,48 @@
     stage.style.transform = `translate(${(W - bw * s) / 2}px, ${(H - bh * s) / 2}px) scale(${s})`;
     DPR = Math.min(devicePixelRatio || 1, 1.75);
     cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
-    if (gl) gl.viewport(0, 0, cv.width, cv.height);
+
   }
 
   // ---------- WebGL: realistyczna błonka mydlana (interferencja cienkiej warstwy) ----------
-  const gl = cv.getContext('webgl', { premultipliedAlpha: true, alpha: true, antialias: false });
-  const MAXB = 24;
-  const VS = `attribute vec2 p; void main(){ gl_Position = vec4(p,0.,1.); }`;
-  const FS = `
-  precision highp float;
-  uniform vec2 res; uniform float time; uniform int count;
-  uniform vec4 bub[${MAXB}];   // x, y, r (px), seed
-  uniform vec4 bub2[${MAXB}];  // squashX, squashY, alpha(pop), spin
-  uniform vec4 bub3[${MAXB}];  // blur (0 ostra .. 1 mocno rozmyta), sparkle, 0, 0
-  float h(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7)))*43758.5453); }
-  float n2(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.-2.*f);
-    return mix(mix(h(i),h(i+vec2(1,0)),f.x), mix(h(i+vec2(0,1)),h(i+vec2(1,1)),f.x), f.y); }
-  float fbm(vec2 p){ float a=.5, s=0.; for(int i=0;i<3;i++){ s+=a*n2(p); p=p*2.07+vec2(1.7,9.2); a*=.5; } return s; }
-  // barwy interferencji: róż, fiolet, złoto, mięta, błękit
-  vec3 film(float t){
-    vec3 c = .5 + .5*cos(6.2831853*(t + vec3(.0, .30, .62)));
-    c = mix(c, vec3(1.,.45,.9), .38);              // przewaga różu i fioletu
-    c.g *= .88;
-    return c;
+  const ctx = cv.getContext('2d');
+  const gl = null;
+  const MAXB = 60;
+  // realistyczne bańki wyrenderowane w Blenderze (odbicia, błonka z kolorowym szumem, odblaski)
+  const SPR = [], SPRB = [];
+  const base = (document.currentScript && document.currentScript.dataset.base) || 'sprites/';
+  for (let i = 0; i < 6; i++) {
+    const im = new Image(); im.src = base + 'b' + i + '.webp';
+    im.onload = () => {
+      SPR[i] = im;
+      // wersja rozmyta (tło) przygotowana raz
+      const c = document.createElement('canvas'); c.width = c.height = 256;
+      const x = c.getContext('2d'); x.filter = 'blur(7px)'; x.drawImage(im, 24, 24, 208, 208); SPRB[i] = c;
+    };
   }
-  float g(float x, float w){ return exp(-x*x/(w*w)); }
-  void main(){
-    vec2 fc = vec2(gl_FragCoord.x, res.y - gl_FragCoord.y);
-    vec4 acc = vec4(0.);
-    for (int i=0;i<${MAXB};i++){
-      if (i>=count) break;
-      vec4 b = bub[i]; vec4 b2 = bub2[i]; vec4 b3 = bub3[i];
-      float bl = b3.x;
-      vec2 d = (fc - b.xy) / (b.z * b2.xy);
-      float dist = length(d);
-      float px = 1. / b.z;
-      float soft = px + bl * .12;                       // rozmycie w jedn. promienia
-      if (dist >= 1. + soft*3.) continue;
-      float ang = atan(d.y, d.x);
-      float sd = b.w * 37.;
-      float tt = time * .22 + sd;
-      vec2 Ld = normalize(vec2(-.62, -.78));            // światło z lewej-góry
-      vec2 dn = d / max(dist, 1e-3);
-      float facing = dot(dn, Ld);
-      // grubość błonki – płynące, wirujące plamy barw
-      vec2 q = vec2(ang * 1.1 + b2.w * time, dist * 1.8 - tt * .35) + sd;
-      float th = fbm(q + fbm(q*1.7 + tt*.3)*1.3) * 1.5 + tt * .12;
-      vec3 col = film(th);
-      float patch = smoothstep(.30, .72, fbm(vec2(ang*1.4 - tt*.5, tt*.2) + sd*1.3));
-      // 1) cienka jasna krawędź (Fresnel)
-      float rimW = .010 + soft;
-      float edge = g(dist - (1. - rimW*.6), rimW);
-      // 2) opalizujące sierpy przy krawędzi (widoczne płatami)
-      float fr = smoothstep(.55 - bl*.2, 1., dist) * (1. - smoothstep(1. - soft*.5, 1. + soft*1.5, dist));
-      fr = pow(fr, 2.4 - bl);
-      float cres = fr * (.25 + .75*patch) * (.6 + .4*smoothstep(.1, -.9, facing));
-      // 3) subtelny ciemniejszy pierścień w środku krawędzi (odbicie tylnej ścianki / refrakcja)
-      float dark = g(dist - .90, .035 + soft) * .05;
-      // 4) odblask okna (zaokrąglony prostokąt) po stronie światła + słabszy po przeciwnej
-      vec2 wv = (d - Ld*.50) * vec2(1., 1.);
-      vec2 wr = vec2(dot(wv, vec2(Ld.y, -Ld.x)), dot(wv, Ld));
-      float win = smoothstep(.06 + soft*2.5, .0, length(max(abs(wr) - vec2(.11, .025), 0.))) * .28;
-      float win2 = smoothstep(.16 + soft*1.5, .04, length(max(abs(-(d + Ld*.62)) - vec2(.05,.05), 0.))) * .18;
-      float arc = g(dist - .84, .05 + soft) * g(facing - 1., .35) * .30;
-      // 5) iskierki (tylko ostre bańki z przodu)
-      vec2 sp = d - Ld * .78;
-      float star = (exp(-abs(sp.x)*120.)*exp(-abs(sp.y)*10.) + exp(-abs(sp.y)*120.)*exp(-abs(sp.x)*10.)) * .6
-                 + smoothstep(.04, .0, length(sp)) * .9;
-      star *= b3.y * .55;
-      // złożenie (premultiplied)
-      vec3 cFilm = col * cres * .8;
-      float aFilm = cres * .32;
-      vec3 cEdge = mix(vec3(1.), col, .40) * edge;
-      float aEdge = edge * .62;
-      float white = clamp(win + win2 + arc + star, 0., 1.);
-      vec3 c = cFilm + cEdge + vec3(white) + vec3(.92,.96,1.)*.03;
-      float a = clamp(aFilm + aEdge + white + .03 + dark, 0., 1.);
-      c *= (1. - dark);
-      float m = (1. - smoothstep(1. - soft*.5, 1. + soft*2., dist)) * b2.z * (1. - bl*.35);
-      // rozmyta bańka zachowuje trochę blasku poza krawędzią
-      c *= m; a *= m;
-      acc.rgb = c + acc.rgb * (1. - a);
-      acc.a   = a + acc.a * (1. - a);
-    }
-    gl_FragColor = vec4(min(acc.rgb, vec3(1.)), acc.a);
-  }`;
-  let prog, uRes, uTime, uCount, uB, uB2, uB3;
-  if (gl) {
-    const sh = (t, s) => { const o = gl.createShader(t); gl.shaderSource(o, s); gl.compileShader(o); return o; };
-    prog = gl.createProgram();
-    gl.attachShader(prog, sh(gl.VERTEX_SHADER, VS)); gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, FS));
-    gl.linkProgram(prog); gl.useProgram(prog);
-    const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
-    const loc = gl.getAttribLocation(prog, 'p'); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
-    uRes = gl.getUniformLocation(prog, 'res'); uTime = gl.getUniformLocation(prog, 'time');
-    uCount = gl.getUniformLocation(prog, 'count'); uB = gl.getUniformLocation(prog, 'bub'); uB2 = gl.getUniformLocation(prog, 'bub2'); uB3 = gl.getUniformLocation(prog, 'bub3');
-    gl.clearColor(0, 0, 0, 0);
-  }
+  // błysk-gwiazdka (glare)
+  const STAR = document.createElement('canvas'); STAR.width = STAR.height = 128;
+  (() => { const x = STAR.getContext('2d'); const g = x.createRadialGradient(64, 64, 0, 64, 64, 64);
+    g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(.12, 'rgba(255,255,255,.75)'); g.addColorStop(.35, 'rgba(255,240,255,.12)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+    x.fillStyle = g; x.fillRect(0, 0, 128, 128);
+    x.globalCompositeOperation = 'lighter';
+    for (const [w, h] of [[128, 3], [3, 128]]) { const lg = x.createLinearGradient(w > h ? 0 : 64, w > h ? 64 : 0, w > h ? 128 : 64, w > h ? 64 : 128);
+      lg.addColorStop(0, 'rgba(255,255,255,0)'); lg.addColorStop(.5, 'rgba(255,255,255,.9)'); lg.addColorStop(1, 'rgba(255,255,255,0)');
+      x.fillStyle = lg; x.fillRect(64 - w / 2, 64 - h / 2, w, h); } })();
 
   // ---------- fizyka bąbelków ----------
   const mouse = { x: -1e4, y: -1e4, px: -1e4, py: -1e4, vx: 0, vy: 0, on: false };
-  const B = []; const N = 26;
+  const B = []; const N = 34;
   const unit = () => Math.max(0.42, Math.min(W, H * 1.78) / 1366);
   function spawn(init) {
     const u = unit();
     // głębia: 0 = daleko (rozmyta, mała, wolna), 1 = blisko (ostra, duża)
     const z = Math.random() < .3 ? Math.random() * .35 : .55 + Math.random() * .45;
     const r = (z < .4 ? 10 + Math.random() * 18 : 18 + Math.pow(Math.random(), 1.8) * 52) * u;
-    return { z, x: Math.random() * W, y: init ? Math.random() * H : H + r * 1.2,
-      r, vx: (Math.random() - .5) * 0.8 * u, vy: -(.4 + Math.random() * .6) * u,
-      seed: Math.random(), ph: Math.random() * 6.283, wob: .7 + Math.random() * .7,
-      spin: (Math.random() - .5) * .25, life: 14 + Math.random() * 22, age: 0, pop: 1, sq: 0, sqv: 0 };
+    return { z, x: r + Math.random() * Math.max(1, W - 2 * r), y: r + Math.random() * Math.max(1, H - 2 * r),
+      r, vx: (Math.random() - .5) * 0.6 * u, vy: (Math.random() - .5) * 0.6 * u, dying: false,
+      v: Math.floor(Math.random() * 6), rot: Math.random() * 6.283, seed: Math.random(), ph: Math.random() * 6.283, wob: .7 + Math.random() * .7,
+      spin: (Math.random() - .5) * .25, life: 18 + Math.random() * 30, age: 0, pop: init ? 1 : 0, sq: 0, sqv: 0 };
   }
   // ruch powietrza: wolno zmieniające się pole prądów
   const flow = (x, y, t) => [
@@ -217,7 +147,7 @@
     Math.cos(x * .0031 + t * .0004) * .25 ];
 
   let last = performance.now(), T0 = last;
-  const fb = new Float32Array(MAXB * 4), fb2 = new Float32Array(MAXB * 4), fb3 = new Float32Array(MAXB * 4);
+  
   function frame(t) {
     if (hero.offsetParent === null) { last = t; requestAnimationFrame(frame); return; }
     if (hero.clientWidth !== W || hero.clientHeight !== H) layout();
@@ -233,15 +163,19 @@
       // wyporność (lekko w górę) + prądy powietrza + lekkie opadanie dużych
       const pz = .35 + .65 * b.z;
       b.vx += (f[0] * .045 * u * pz) * dt;
-      b.vy += (f[1] * .03 * u - .012 * u * (60 / (b.r / u + 30))) * dt;
+      b.vy += (f[1] * .035 * u + Math.sin(t * .0004 + b.ph) * .006 * u) * dt;
+      // miękkie ściany: odsunięte bańki łagodnie wracają do kadru
+      const m = b.r * .6;
+      if (b.x < m) b.vx += (m - b.x) * .0025 * dt; else if (b.x > W - m) b.vx -= (b.x - W + m) * .0025 * dt;
+      if (b.y < m) b.vy += (m - b.y) * .0025 * dt; else if (b.y > H - m) b.vy -= (b.y - H + m) * .0025 * dt;
       if (mouse.on) {
         const dx = b.x - mouse.x, dy = b.y - mouse.y, d = Math.hypot(dx, dy) || .01;
-        const R = b.r + 110 * u * (.6 + .4 * b.z);
+        const R = b.r + 150 * u * (.6 + .4 * b.z);
         if (d < R) {
           const k = 1 - d / R;
           const ms = Math.hypot(mouse.vx, mouse.vy);
-          b.vx += (dx / d) * k * k * .22 * u * dt * pz;
-          b.vy += (dy / d) * k * k * .22 * u * dt * pz;
+          b.vx += (dx / d) * k * k * .9 * u * dt * pz;
+          b.vy += (dy / d) * k * k * .9 * u * dt * pz;
           b.sqv += k * Math.min(ms, 30) * .0004;
         }
       }
@@ -252,28 +186,34 @@
       }
       // opór powietrza (bańki są lekkie – szybko hamują)
       b.vx *= Math.pow(.95, dt); b.vy *= Math.pow(.95, dt);
-      const sp = Math.hypot(b.vx, b.vy), mx = 2.2 * u; if (sp > mx) { b.vx *= mx / sp; b.vy *= mx / sp; }
+      const sp = Math.hypot(b.vx, b.vy), mx = 5 * u; if (sp > mx) { b.vx *= mx / sp; b.vy *= mx / sp; }
       b.x += b.vx * dt * pz; b.y += b.vy * dt * pz;
       // sprężyste drżenie kształtu
       b.sqv += (-b.sq * .08) * dt; b.sqv *= Math.pow(.92, dt); b.sq += b.sqv * dt;
-      if (b.x < -b.r * 2 || b.x > W + b.r * 2 || b.y < -b.r * 2 || b.y > H + b.r * 2.5) { B[i] = spawn(false); continue; }
-      if (b.age > b.life) { b.pop -= .12 * dt; if (b.pop <= 0) { B[i] = spawn(false); continue; } }
+      if (b.age > b.life) b.dying = true;
+      if (b.dying) { b.pop -= .02 * dt; if (b.pop <= 0) { B[i] = spawn(false); continue; } }
+      else if (b.pop < 1) b.pop = Math.min(1, b.pop + .015 * dt);
     }
-    if (gl) {
-      const n = Math.min(B.length, MAXB);
-      const S = B.slice(0, n).sort((p, q) => p.z - q.z);
-      for (let i = 0; i < n; i++) {
-        const b = S[i], w = Math.sin(t * .0017 * b.wob + b.ph) * .025 + b.sq;
-        fb.set([b.x * DPR, b.y * DPR, b.r * DPR, b.seed], i * 4);
-        fb2.set([1 + w, 1 - w, Math.max(0, b.pop), b.spin], i * 4);
-        const blur = b.z < .4 ? .35 + (.4 - b.z) * .6 : 0;
-        fb3.set([Math.min(1, blur), b.z > .7 ? 1 : 0, 0, 0], i * 4);
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+    const S = B.slice().sort((p, q) => p.z - q.z), tt = (t - T0) / 1000;
+    for (const b of S) {
+      const im = b.z < .4 ? SPRB[b.v] : SPR[b.v]; if (!im) continue;
+      const w = Math.sin(t * .0017 * b.wob + b.ph) * .02 + b.sq;
+      const d = b.r * 2 * (b.z < .4 ? 256 / 208 : 1);
+      ctx.save(); ctx.translate(b.x, b.y); ctx.rotate(b.rot + tt * b.spin * .15); ctx.scale(1 + w, 1 - w);
+      ctx.globalAlpha = Math.max(0, b.pop) * (b.z < .4 ? .55 : .9);
+      ctx.drawImage(im, -d / 2, -d / 2, d, d);
+      ctx.restore();
+      if (b.z > .7) {   // migoczący błysk na krawędzi
+        const tw = Math.max(0, Math.sin(tt * (1.1 + b.wob) + b.ph * 3)) ** 3;
+        const sx = b.x + b.r * .62, sy = b.y - b.r * .55, ss = b.r * (.55 + .35 * tw);
+        ctx.globalAlpha = Math.max(0, b.pop) * (.35 + .65 * tw); ctx.globalCompositeOperation = 'lighter';
+        ctx.drawImage(STAR, sx - ss / 2, sy - ss / 2, ss, ss);
+        ctx.globalCompositeOperation = 'source-over';
       }
-      gl.clear(gl.COLOR_BUFFER_BIT);
-      gl.uniform2f(uRes, cv.width, cv.height); gl.uniform1f(uTime, (t - T0) / 1000);
-      gl.uniform1i(uCount, n); gl.uniform4fv(uB, fb); gl.uniform4fv(uB2, fb2); gl.uniform4fv(uB3, fb3);
-      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     }
+    ctx.globalAlpha = 1;
     requestAnimationFrame(frame);
   }
   function setM(x, y) { if (!mouse.on) { mouse.px = x; mouse.py = y; } mouse.x = x; mouse.y = y; mouse.on = true; }
@@ -303,21 +243,21 @@
 <div class="t" style="left:4.2123%;top:-0.1318%;width:2.9283%;height:3.3376%;font-size:1.6105cqw;font-weight:700;color:#0a9a92;text-align:left;line-height:1.1;letter-spacing:0em;">01</div>
 </section>
 <section class="sec" style="aspect-ratio:1366.0/768;background:#8cc8f6">
-<div class="m" style="left:4.4041%;top:3.7026%;width:93.3426%;height:93.0423%;"><img src="https://witkowskimich.my.canva.site/_assets/media/acff3dfd179e54e46cd891804163a8c5.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></div>
+<div class="m" style="left:4.4041%;top:3.7026%;width:93.3426%;height:93.0423%;"><img src="https://witkowskimich.my.canva.site/_assets/media/a809b8c9473716484fdba10b5104a615.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></div>
 </section>
 <section class="sec" style="aspect-ratio:1366.0/768;background:#8cc8f6">
-<div class="m" style="left:4.5213%;top:1.1940%;width:93.3878%;height:94.8868%;"><img src="https://witkowskimich.my.canva.site/_assets/media/7ed45ea3efc2027fcea01a812900b991.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></div>
+<div class="m" style="left:4.5213%;top:1.1940%;width:93.3878%;height:94.8868%;"><img src="https://witkowskimich.my.canva.site/_assets/media/9aec6f28d86bd956000dfeb9c8700f34.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></div>
 </section>
 <section class="sec" style="aspect-ratio:1366.0/768;background:#8cc8f6">
-<div class="m" style="left:4.5539%;top:1.2676%;width:93.3830%;height:95.9200%;"><img src="https://witkowskimich.my.canva.site/_assets/media/bc3fda42a5f34d9264f223e357b59842.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></div>
+<div class="m" style="left:4.5539%;top:1.2676%;width:93.3830%;height:95.9200%;"><img src="https://witkowskimich.my.canva.site/_assets/media/ba62ff3938041b1561196f8ce78bcb6b.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></div>
 </section>
 <section class="sec" style="aspect-ratio:1366.0/768;background:#8cc8f6">
-<div class="m" style="left:4.5813%;top:1.8982%;width:93.3224%;height:96.2035%;"><img src="https://witkowskimich.my.canva.site/_assets/media/fe2352065f4e17f7941a534c07d40f39.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></div>
+<div class="m" style="left:4.5813%;top:1.8982%;width:93.3224%;height:96.2035%;"><img src="https://witkowskimich.my.canva.site/_assets/media/32ebe3c8e2d1bd57a9527a80c449fb35.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></div>
 </section>
 <section class="sec" style="aspect-ratio:1366.0/1478;background:#8cc8f6">
-<div class="m" style="left:4.6736%;top:1.4399%;width:37.1099%;height:47.6061%;"><img src="https://witkowskimich.my.canva.site/_assets/media/a37c47094744cb1aa138e9315f6a1bf6.jpg" alt="" loading="lazy" decoding="async" style="left:-107.1512%;top:0.0000%;width:237.9463%;height:100.0000%;"></div>
-<div class="m" style="left:42.5986%;top:1.4399%;width:55.6182%;height:47.6061%;"><img src="https://witkowskimich.my.canva.site/_assets/media/c98e2dbdc2b5bedbc60f9bb4391545df.jpg" alt="" loading="lazy" decoding="async" style="left:-35.1724%;top:0.0000%;width:159.7914%;height:100.0000%;"></div>
-<div class="m" style="left:4.6736%;top:50.0000%;width:93.5431%;height:48.4146%;"><video src="https://witkowskimich.my.canva.site/_assets/video/e356fea277c9451ee70742aedb37b34b.mp4" poster="https://witkowskimich.my.canva.site/_assets/video/20f46c60daebe883d9e3158e120a3e1f.jpg" autoplay muted loop playsinline preload="metadata" style="left:0.0000%;top:-0.2134%;width:100.0000%;height:100.4268%;"></video></div>
+<div class="m" style="left:4.6736%;top:1.4399%;width:37.1099%;height:47.6061%;"><img src="https://witkowskimich.my.canva.site/_assets/media/53a54bc9a2193a8aed1bc797731e0055.jpg" alt="" loading="lazy" decoding="async" style="left:-107.1512%;top:0.0000%;width:237.9463%;height:100.0000%;"></div>
+<div class="m" style="left:42.5986%;top:1.4399%;width:55.6182%;height:47.6061%;"><img src="https://witkowskimich.my.canva.site/_assets/media/f982a29b1fe8a2b725e06b15f2d63041.jpg" alt="" loading="lazy" decoding="async" style="left:-35.1724%;top:0.0000%;width:159.7914%;height:100.0000%;"></div>
+<div class="m" style="left:4.6736%;top:50.0000%;width:93.5431%;height:48.4146%;"><video src="https://witkowskimich.my.canva.site/_assets/video/e356fea277c9451ee70742aedb37b34b.mp4" poster="https://witkowskimich.my.canva.site/_assets/video/20f46c60daebe883d9e3158e120a3e1f.jpg" controls muted loop playsinline preload="metadata" style="left:0.0000%;top:-0.2134%;width:100.0000%;height:100.4268%;"></video></div>
 <div class="t" style="left:64.6414%;top:98.3991%;width:33.5753%;height:0.9703%;font-size:0.8785cqw;font-weight:400;color:#0b4a55;text-align:right;line-height:1;letter-spacing:0.025em;">Aplikacja real-time: zespół Resimo</div>
 </section>
 <section class="sec" style="aspect-ratio:1366.0/797;background:#8cc8f6">
@@ -327,18 +267,18 @@
 <div class="t" style="left:4.9087%;top:3.4898%;width:2.9283%;height:3.2873%;font-size:1.6105cqw;font-weight:700;color:#0a9a92;text-align:left;line-height:1.1;letter-spacing:0em;">02</div>
 </section>
 <section class="sec" style="aspect-ratio:1366.0/768;background:#8cc8f6">
-<div class="m" style="left:4.8754%;top:1.2616%;width:92.9494%;height:98.7384%;"><img src="https://witkowskimich.my.canva.site/_assets/media/5b20f5bf9eeb05f93ad94c3a1810d1be.jpg" alt="" loading="lazy" decoding="async" style="left:-0.0827%;top:-0.0000%;width:100.1653%;height:100.0000%;"></div>
+<div class="m" style="left:4.8754%;top:1.2616%;width:92.9494%;height:98.7384%;"><img src="https://witkowskimich.my.canva.site/_assets/media/ec8a67ca7f4f9dd01a23c48a401b2dbe.jpg" alt="" loading="lazy" decoding="async" style="left:-0.0827%;top:-0.0000%;width:100.1653%;height:100.0000%;"></div>
 </section>
 <section class="sec" style="aspect-ratio:1366.0/3842;background:#8cc8f6">
-<div class="m" style="left:4.9258%;top:0.5432%;width:44.0436%;height:8.6685%;"><img src="https://witkowskimich.my.canva.site/_assets/media/7e9240116d26c416629bf297d181b2a5.jpg" alt="" loading="lazy" decoding="async" style="left:-0.0000%;top:-5.2386%;width:100.0000%;height:112.3042%;"></div>
-<div class="m" style="left:4.9258%;top:28.4047%;width:92.5079%;height:17.9484%;"><img src="https://witkowskimich.my.canva.site/_assets/media/1752a56514d66a8b3d13464b92c8677c.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:-1.6821%;width:100.0000%;height:114.1933%;"></div>
-<div class="m" style="left:4.9258%;top:9.7525%;width:44.0436%;height:8.7824%;"><img src="https://witkowskimich.my.canva.site/_assets/media/013141d4be15a867bf34edb61fcb7180.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:-11.0203%;width:100.0000%;height:116.4631%;"></div>
-<div class="m" style="left:4.9258%;top:19.0757%;width:43.9392%;height:8.7824%;"><img src="https://witkowskimich.my.canva.site/_assets/media/34ae87060a05c738bc762068a7e89f9a.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:-2.7927%;width:100.0000%;height:114.3398%;"></div>
-<div class="m" style="left:50.9151%;top:0.6903%;width:46.5186%;height:27.1678%;"><video src="https://witkowskimich.my.canva.site/_assets/video/8d290f97ab66440753002a3d327fe111.mp4" poster="https://witkowskimich.my.canva.site/_assets/video/ed6bae08778343d34f95a94ec9bf601f.jpg" autoplay muted loop playsinline preload="metadata" style="left:0.0000%;top:-8.2498%;width:100.0000%;height:108.2498%;"></video></div>
-<div class="m" style="left:4.9258%;top:77.2641%;width:92.5079%;height:18.5010%;"><video src="https://witkowskimich.my.canva.site/_assets/video/851ffae1d8482f1fa61e92473abe89b6.mp4" poster="https://witkowskimich.my.canva.site/_assets/video/29cbdaee2b850be4068c663ef6e93c66.jpg" autoplay muted loop playsinline preload="metadata" style="left:-0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></video></div>
-<div class="m" style="left:4.9258%;top:48.6665%;width:92.5079%;height:18.5010%;"><img src="https://witkowskimich.my.canva.site/_assets/media/702fbeba8971981f7cec9bbda133bf8d.png" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></div>
-<div class="m" style="left:4.9258%;top:67.6629%;width:45.5348%;height:9.1067%;"><img src="https://witkowskimich.my.canva.site/_assets/media/77a798de5140a48b4dc8f29a5fe26e55.png" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></div>
-<div class="m" style="left:51.8988%;top:67.6629%;width:45.5348%;height:9.1067%;"><img src="https://witkowskimich.my.canva.site/_assets/media/8b5f0641200e7d499d1e101da130f2e1.png" alt="" loading="lazy" decoding="async" style="left:-0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></div>
+<div class="m" style="left:4.9258%;top:0.5432%;width:44.0436%;height:8.6685%;"><img src="https://witkowskimich.my.canva.site/_assets/media/09457aa472c4dee1eb71489636af221a.jpg" alt="" loading="lazy" decoding="async" style="left:-0.0000%;top:-5.2386%;width:100.0000%;height:112.3042%;"></div>
+<div class="m" style="left:4.9258%;top:28.4047%;width:92.5079%;height:17.9484%;"><img src="https://witkowskimich.my.canva.site/_assets/media/5b3252720cb70e3c586b7112bbeda036.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:-1.6821%;width:100.0000%;height:114.1933%;"></div>
+<div class="m" style="left:4.9258%;top:9.7525%;width:44.0436%;height:8.7824%;"><img src="https://witkowskimich.my.canva.site/_assets/media/b18cd15c96d123b47ec87af9569311c4.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:-11.0203%;width:100.0000%;height:116.4631%;"></div>
+<div class="m" style="left:4.9258%;top:19.0757%;width:43.9392%;height:8.7824%;"><img src="https://witkowskimich.my.canva.site/_assets/media/d33a1661993e26e42e1149a7e32529b3.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:-2.7927%;width:100.0000%;height:114.3398%;"></div>
+<div class="m" style="left:50.9151%;top:0.6903%;width:46.5186%;height:27.1678%;"><video src="https://witkowskimich.my.canva.site/_assets/video/8d290f97ab66440753002a3d327fe111.mp4" poster="https://witkowskimich.my.canva.site/_assets/video/ed6bae08778343d34f95a94ec9bf601f.jpg" controls muted loop playsinline preload="metadata" style="left:0.0000%;top:-8.2498%;width:100.0000%;height:108.2498%;"></video></div>
+<div class="m" style="left:4.9258%;top:77.2641%;width:92.5079%;height:18.5010%;"><video src="https://witkowskimich.my.canva.site/_assets/video/851ffae1d8482f1fa61e92473abe89b6.mp4" poster="https://witkowskimich.my.canva.site/_assets/video/29cbdaee2b850be4068c663ef6e93c66.jpg" controls muted loop playsinline preload="metadata" style="left:-0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></video></div>
+<div class="m" style="left:4.9258%;top:48.6665%;width:92.5079%;height:18.5010%;"><img src="https://witkowskimich.my.canva.site/_assets/media/f4c2427a86cd0cda6e0fbce0fca52b57.png" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></div>
+<div class="m" style="left:4.9258%;top:67.6629%;width:45.5348%;height:9.1067%;"><img src="https://witkowskimich.my.canva.site/_assets/media/f02eb7b4b1563bf25376e421ac7107ff.png" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></div>
+<div class="m" style="left:51.8988%;top:67.6629%;width:45.5348%;height:9.1067%;"><img src="https://witkowskimich.my.canva.site/_assets/media/5f470b69e92a3361b2e0a174725e17f5.png" alt="" loading="lazy" decoding="async" style="left:-0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></div>
 <div class="t" style="left:66.4861%;top:97.9510%;width:29.2826%;height:0.5622%;font-size:1.3177cqw;font-weight:700;color:#0a9a92;text-align:right;line-height:1;letter-spacing:0.025em;"><a href="#/wiezowce">Dalej: Wieżowce →</a></div>
 <div class="t" style="left:8.1469%;top:47.9851%;width:88.2870%;height:0.6819%;font-size:1.6105cqw;font-weight:700;color:#0b4a55;text-align:left;line-height:1.1;letter-spacing:0.025em;">Portugalia · 2022 · Blender / Unity URP</div>
 <div class="t" style="left:63.8583%;top:27.8313%;width:33.5753%;height:0.3733%;font-size:0.8785cqw;font-weight:400;color:#0b4a55;text-align:right;line-height:1;letter-spacing:0.025em;">Aplikacja real-time: zespół Resimo</div>
@@ -354,52 +294,52 @@
 </section>
 <section class="sec" style="aspect-ratio:1366.0/5470;background:#8cc8f6">
 <div class="m" style="left:4.3009%;top:0.7861%;width:93.5228%;height:16.3789%;"><img src="https://witkowskimich.my.canva.site/_assets/media/3dad392f607b54f511cc702f6c28aaa6.png" alt="" loading="lazy" decoding="async" style="left:-0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></div>
-<div class="m" style="left:4.3009%;top:17.7331%;width:31.4061%;height:11.1609%;"><img src="https://witkowskimich.my.canva.site/_assets/media/99444382d33d94a98e66b7133a50e388.jpg" alt="" loading="lazy" decoding="async" style="left:-40.4896%;top:0.0000%;width:183.1977%;height:101.0040%;"></div>
-<div class="m" style="left:37.8220%;top:17.7331%;width:60.0016%;height:11.1609%;"><img src="https://witkowskimich.my.canva.site/_assets/media/9f7d9405f99f83501864a5b1cc437511.jpg" alt="" loading="lazy" decoding="async" style="left:-19.2871%;top:0.0000%;width:124.8360%;height:100.0000%;"></div>
-<div class="m" style="left:4.3009%;top:29.4607%;width:93.5228%;height:13.6140%;"><img src="https://witkowskimich.my.canva.site/_assets/media/c0b3e055c1971fe417573ee79616fc90.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></div>
-<div class="m" style="left:52.2147%;top:43.4939%;width:45.6090%;height:6.7105%;"><img src="https://witkowskimich.my.canva.site/_assets/media/a04465bb52ee7a724d743bd4e4ae4eee.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></div>
-<div class="m" style="left:4.3009%;top:43.4939%;width:46.1640%;height:6.7105%;"><img src="https://witkowskimich.my.canva.site/_assets/media/012a3909d7880c95f2a3d9046ce4e617.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></div>
-<div class="m" style="left:4.3009%;top:50.6248%;width:93.5228%;height:13.6627%;"><img src="https://witkowskimich.my.canva.site/_assets/media/34d30bc7b736a6f76752b20c903f93a1.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></div>
-<div class="m" style="left:52.2147%;top:64.8543%;width:45.6090%;height:7.2622%;"><img src="https://witkowskimich.my.canva.site/_assets/media/d8cd74f30a6d12a099976f25af8ecbde.jpg" alt="" loading="lazy" decoding="async" style="left:-3.9965%;top:0.0000%;width:107.9931%;height:100.0000%;"></div>
-<div class="m" style="left:4.3009%;top:64.7080%;width:45.6991%;height:7.4085%;"><img src="https://witkowskimich.my.canva.site/_assets/media/cebacc203e2afa94735bed6529cab51f.jpg" alt="" loading="lazy" decoding="async" style="left:-0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></div>
-<div class="m" style="left:4.3009%;top:72.5369%;width:93.5228%;height:13.6822%;"><img src="https://witkowskimich.my.canva.site/_assets/media/5987455628dc5cd3e8b3d705256ae18d.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:-0.0000%;width:100.0000%;height:100.0000%;"></div>
-<div class="m" style="left:4.3009%;top:86.5059%;width:93.5228%;height:13.1372%;"><video src="https://witkowskimich.my.canva.site/_assets/video/09272c41d95bfd8fbab925450d6a2b3a.mp4" poster="https://witkowskimich.my.canva.site/_assets/video/109e5ce65908bab65b02f75c0cdc943d.jpg" autoplay muted loop playsinline preload="metadata" style="left:-0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></video></div>
+<div class="m" style="left:4.3009%;top:17.7331%;width:31.4061%;height:11.1609%;"><img src="https://witkowskimich.my.canva.site/_assets/media/657a5a64d4902a1d69644859a8c759f9.jpg" alt="" loading="lazy" decoding="async" style="left:-40.4896%;top:0.0000%;width:183.1977%;height:101.0040%;"></div>
+<div class="m" style="left:37.8220%;top:17.7331%;width:60.0016%;height:11.1609%;"><img src="https://witkowskimich.my.canva.site/_assets/media/3265e629a2766fce65d63421a0bab26f.jpg" alt="" loading="lazy" decoding="async" style="left:-19.2871%;top:0.0000%;width:124.8360%;height:100.0000%;"></div>
+<div class="m" style="left:4.3009%;top:29.4607%;width:93.5228%;height:13.6140%;"><img src="https://witkowskimich.my.canva.site/_assets/media/c73d215f7c3e74d6e2108459ff2cd178.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></div>
+<div class="m" style="left:52.2147%;top:43.4939%;width:45.6090%;height:6.7105%;"><img src="https://witkowskimich.my.canva.site/_assets/media/d86bf56a015b231266839dde7395a69f.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></div>
+<div class="m" style="left:4.3009%;top:43.4939%;width:46.1640%;height:6.7105%;"><img src="https://witkowskimich.my.canva.site/_assets/media/471ca2c2868bbf32dcf9e30967a5b014.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></div>
+<div class="m" style="left:4.3009%;top:50.6248%;width:93.5228%;height:13.6627%;"><img src="https://witkowskimich.my.canva.site/_assets/media/0be31608356efce29906b5961b2e0c59.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></div>
+<div class="m" style="left:52.2147%;top:64.8543%;width:45.6090%;height:7.2622%;"><img src="https://witkowskimich.my.canva.site/_assets/media/884b0f244bc8ff33606e98369fd65518.jpg" alt="" loading="lazy" decoding="async" style="left:-3.9965%;top:0.0000%;width:107.9931%;height:100.0000%;"></div>
+<div class="m" style="left:4.3009%;top:64.7080%;width:45.6991%;height:7.4085%;"><img src="https://witkowskimich.my.canva.site/_assets/media/2e3b0a21fa991e2e13edd8a735fe2485.jpg" alt="" loading="lazy" decoding="async" style="left:-0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></div>
+<div class="m" style="left:4.3009%;top:72.5369%;width:93.5228%;height:13.6822%;"><img src="https://witkowskimich.my.canva.site/_assets/media/fc3f8f734d9959321de375cbb60d7113.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:-0.0000%;width:100.0000%;height:100.0000%;"></div>
+<div class="m" style="left:4.3009%;top:86.5059%;width:93.5228%;height:13.1372%;"><video src="https://witkowskimich.my.canva.site/_assets/video/09272c41d95bfd8fbab925450d6a2b3a.mp4" poster="https://witkowskimich.my.canva.site/_assets/video/109e5ce65908bab65b02f75c0cdc943d.jpg" controls muted loop playsinline preload="metadata" style="left:-0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></video></div>
 <div class="t" style="left:4.3009%;top:0.2568%;width:91.5081%;height:0.4790%;font-size:1.6105cqw;font-weight:700;color:#0b4a55;text-align:left;line-height:1.1;letter-spacing:0.025em;">01   Katar · 2025 · Blender / Unreal Engine</div>
 <div class="t" style="left:64.2483%;top:17.1642%;width:33.5753%;height:0.2554%;font-size:0.8785cqw;font-weight:400;color:#0b4a55;text-align:right;line-height:1;letter-spacing:0.025em;">Podgląd wzbogacony przez AI</div>
 <div class="t" style="left:64.5299%;top:99.6243%;width:33.5753%;height:0.2622%;font-size:0.8785cqw;font-weight:400;color:#0b4a55;text-align:right;line-height:1;letter-spacing:0.025em;">Aplikacja real-time: zespół Resimo</div>
 </section>
 <section class="sec" style="aspect-ratio:1366.0/795;background:#8cc8f6">
-<div class="m" style="left:4.9087%;top:8.4544%;width:93.1965%;height:89.0304%;"><img src="https://witkowskimich.my.canva.site/_assets/media/19a1f4ca23ecec624375417c20104196.jpg" alt="" loading="lazy" decoding="async" style="left:-0.0000%;top:-1.9732%;width:100.0000%;height:119.9095%;"></div>
+<div class="m" style="left:4.9087%;top:8.4544%;width:93.1965%;height:89.0304%;"><img src="https://witkowskimich.my.canva.site/_assets/media/c9b39188345ab7f8f39921da3d30cdc8.jpg" alt="" loading="lazy" decoding="async" style="left:-0.0000%;top:-1.9732%;width:100.0000%;height:119.9095%;"></div>
 <div class="t" style="left:8.1298%;top:4.2811%;width:88.2870%;height:3.2421%;font-size:1.6105cqw;font-weight:700;color:#0b4a55;text-align:left;line-height:1.1;letter-spacing:0.025em;">Dubaj · 2026 · Blender / Unreal Engine</div>
 <div class="t" style="left:64.5299%;top:98.2484%;width:33.5753%;height:1.7570%;font-size:0.8785cqw;font-weight:400;color:#0b4a55;text-align:right;line-height:1;letter-spacing:0.025em;">Podgląd wzbogacony przez AI</div>
 <div class="t" style="left:4.9087%;top:4.2811%;width:2.9283%;height:3.2956%;font-size:1.6105cqw;font-weight:700;color:#0a9a92;text-align:left;line-height:1.1;letter-spacing:0em;">02</div>
 </section>
 <section class="sec" style="aspect-ratio:1366.0/768;background:#8cc8f6">
-<div class="m" style="left:4.7940%;top:4.3350%;width:35.2908%;height:95.6650%;"><img src="https://witkowskimich.my.canva.site/_assets/media/71b1412c53d136f1ef803f0cf02907f5.jpg" alt="" loading="lazy" decoding="async" style="left:-51.5071%;top:-2.0428%;width:186.2595%;height:102.0428%;"></div>
-<div class="m" style="left:41.6222%;top:4.3350%;width:56.4927%;height:63.2190%;"><img src="https://witkowskimich.my.canva.site/_assets/media/d45e57e29ba931fe9190b253febcbeb6.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></div>
-<div class="m" style="left:41.6222%;top:69.8036%;width:27.5120%;height:30.1964%;"><img src="https://witkowskimich.my.canva.site/_assets/media/a73acf8eee89352b60441ffc7ffda8bb.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></div>
-<div class="m" style="left:70.6585%;top:69.8036%;width:27.4564%;height:30.1964%;"><img src="https://witkowskimich.my.canva.site/_assets/media/13765b28c3b119663bfd95315bf936f0.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></div>
+<div class="m" style="left:4.7940%;top:4.3350%;width:35.2908%;height:95.6650%;"><img src="https://witkowskimich.my.canva.site/_assets/media/1236ee5bbe219ae8756019a06701efbe.jpg" alt="" loading="lazy" decoding="async" style="left:-51.5071%;top:-2.0428%;width:186.2595%;height:102.0428%;"></div>
+<div class="m" style="left:41.6222%;top:4.3350%;width:56.4927%;height:63.2190%;"><img src="https://witkowskimich.my.canva.site/_assets/media/08ac1d405692145a2a3998db03085e20.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></div>
+<div class="m" style="left:41.6222%;top:69.8036%;width:27.5120%;height:30.1964%;"><img src="https://witkowskimich.my.canva.site/_assets/media/a333d4a06d238b5b4df809d5f3a0d484.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></div>
+<div class="m" style="left:70.6585%;top:69.8036%;width:27.4564%;height:30.1964%;"><img src="https://witkowskimich.my.canva.site/_assets/media/80a8775dd5b9e709f0efacf9baa9d128.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></div>
 </section>
 <section class="sec" style="aspect-ratio:1366.0/768;background:#8cc8f6">
-<div class="m" style="left:4.9935%;top:3.2544%;width:63.6935%;height:96.7456%;"><img src="https://witkowskimich.my.canva.site/_assets/media/a178b6701ebdce914ef89185de0cb8bc.jpg" alt="" loading="lazy" decoding="async" style="left:-8.4583%;top:-0.0000%;width:137.6459%;height:100.0000%;"></div>
-<div class="m" style="left:70.6944%;top:35.7880%;width:27.4153%;height:30.0903%;"><img src="https://witkowskimich.my.canva.site/_assets/media/b6d346b1fe222b4dd017a0327e810e63.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></div>
-<div class="m" style="left:70.6944%;top:68.7989%;width:27.4153%;height:31.2011%;"><img src="https://witkowskimich.my.canva.site/_assets/media/8db1ed089534a1d1447f253d73db5b05.jpg" alt="" loading="lazy" decoding="async" style="left:-0.0000%;top:-0.0000%;width:103.7617%;height:100.0000%;"></div>
-<div class="m" style="left:70.6944%;top:3.2544%;width:27.4416%;height:29.6690%;"><img src="https://witkowskimich.my.canva.site/_assets/media/12ebd58988b7577188ee19088d718cc7.jpg" alt="" loading="lazy" decoding="async" style="left:-0.0000%;top:-8.9976%;width:129.2902%;height:131.5176%;"></div>
+<div class="m" style="left:4.9935%;top:3.2544%;width:63.6935%;height:96.7456%;"><img src="https://witkowskimich.my.canva.site/_assets/media/21f82699a7a5d37f996b5660ea13f2f1.jpg" alt="" loading="lazy" decoding="async" style="left:-8.4583%;top:-0.0000%;width:137.6459%;height:100.0000%;"></div>
+<div class="m" style="left:70.6944%;top:35.7880%;width:27.4153%;height:30.0903%;"><img src="https://witkowskimich.my.canva.site/_assets/media/23e032b8f99ac3a9941d991dda664bd1.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></div>
+<div class="m" style="left:70.6944%;top:68.7989%;width:27.4153%;height:31.2011%;"><img src="https://witkowskimich.my.canva.site/_assets/media/3bdadf4224deccab4e203f577b082259.jpg" alt="" loading="lazy" decoding="async" style="left:-0.0000%;top:-0.0000%;width:103.7617%;height:100.0000%;"></div>
+<div class="m" style="left:70.6944%;top:3.2544%;width:27.4416%;height:29.6690%;"><img src="https://witkowskimich.my.canva.site/_assets/media/0cca4df17e1d8532d4f74c9874e8b687.jpg" alt="" loading="lazy" decoding="async" style="left:-0.0000%;top:-8.9976%;width:129.2902%;height:131.5176%;"></div>
 </section>
 <section class="sec" style="aspect-ratio:1366.0/1747;background:#8cc8f6">
 <div class="m" style="left:4.3563%;top:2.4501%;width:93.4674%;height:52.5669%;"><img src="https://witkowskimich.my.canva.site/_assets/media/b54d2cd24cbd3d38f9ae4a52e1169788.png" alt="" loading="lazy" decoding="async" style="left:-0.3694%;top:-1.4911%;width:100.6065%;height:102.5730%;"></div>
 <div class="t" style="left:7.2321%;top:0.6100%;width:88.2870%;height:1.4754%;font-size:1.6105cqw;font-weight:700;color:#0b4a55;text-align:left;line-height:1.1;letter-spacing:0.025em;">Warszawa · 2024 · Blender / Unity HDRP</div>
 <div class="t" style="left:64.2483%;top:55.1302%;width:33.5753%;height:0.7995%;font-size:0.8785cqw;font-weight:400;color:#0b4a55;text-align:right;line-height:1;letter-spacing:0.025em;">Podgląd wzbogacony przez AI</div>
 <div class="m" style="left:4.0110%;top:56.7658%;width:48.2836%;height:42.4948%;"><img src="https://witkowskimich.my.canva.site/_assets/media/ed15c141a7853d8a2294be53896ac4cd.jpg" alt="" loading="lazy" decoding="async" style="left:-2.2899%;top:-1.3430%;width:102.2899%;height:102.6860%;"></div>
-<div class="m" style="left:53.8756%;top:56.7658%;width:43.9481%;height:20.7470%;"><img src="https://witkowskimich.my.canva.site/_assets/media/cbfc26b65908afcfd6273e3a1a7301bb.jpg" alt="" loading="lazy" decoding="async" style="left:-0.0000%;top:-0.0000%;width:100.0000%;height:100.0000%;"></div>
-<div class="m" style="left:53.8756%;top:78.8860%;width:43.9481%;height:20.3746%;"><img src="https://witkowskimich.my.canva.site/_assets/media/c56e51106964be0040d3f158090235a1.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:-2.2491%;width:100.0000%;height:102.2491%;"></div>
+<div class="m" style="left:53.8756%;top:56.7658%;width:43.9481%;height:20.7470%;"><img src="https://witkowskimich.my.canva.site/_assets/media/3178a8247a115b6bf4c2721559f1d66e.jpg" alt="" loading="lazy" decoding="async" style="left:-0.0000%;top:-0.0000%;width:100.0000%;height:100.0000%;"></div>
+<div class="m" style="left:53.8756%;top:78.8860%;width:43.9481%;height:20.3746%;"><img src="https://witkowskimich.my.canva.site/_assets/media/589b9e1ea793cb135f5cde91d0afe5bb.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:-2.2491%;width:100.0000%;height:102.2491%;"></div>
 <div class="t" style="left:4.0110%;top:0.6100%;width:2.9283%;height:1.4997%;font-size:1.6105cqw;font-weight:700;color:#0a9a92;text-align:left;line-height:1.1;letter-spacing:0em;">03</div>
 </section>
 <section class="sec" style="aspect-ratio:1366.0/768;background:#8cc8f6">
-<div class="m" style="left:4.3726%;top:1.0752%;width:42.1288%;height:51.5055%;"><img src="https://witkowskimich.my.canva.site/_assets/media/c59b18a8ac978df8cb704a25858f4e64.jpg" alt="" loading="lazy" decoding="async" style="left:-15.6068%;top:0.0000%;width:119.7850%;height:106.0128%;"></div>
-<div class="m" style="left:47.9869%;top:1.0752%;width:49.9409%;height:51.5055%;"><img src="https://witkowskimich.my.canva.site/_assets/media/f0d5e0968c7a5e1598d4699387bb630b.jpg" alt="" loading="lazy" decoding="async" style="left:-1.5340%;top:0.0000%;width:101.5340%;height:106.0128%;"></div>
-<div class="m" style="left:4.3726%;top:55.1769%;width:42.1288%;height:39.0147%;"><img src="https://witkowskimich.my.canva.site/_assets/media/24fd3afa40f264edfdcf8ad553de12a0.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:-4.5863%;width:100.0000%;height:117.3974%;"></div>
-<div class="m" style="left:47.9869%;top:55.1769%;width:49.9409%;height:39.0147%;"><img src="https://witkowskimich.my.canva.site/_assets/media/124298335ebcb4bbfba9925719c63417.jpg" alt="" loading="lazy" decoding="async" style="left:-0.0000%;top:-19.5138%;width:100.0000%;height:142.2028%;"></div>
+<div class="m" style="left:4.3726%;top:1.0752%;width:42.1288%;height:51.5055%;"><img src="https://witkowskimich.my.canva.site/_assets/media/b1f322f02abcd7c572ef404cf6c20c85.jpg" alt="" loading="lazy" decoding="async" style="left:-15.6068%;top:0.0000%;width:119.7850%;height:106.0128%;"></div>
+<div class="m" style="left:47.9869%;top:1.0752%;width:49.9409%;height:51.5055%;"><img src="https://witkowskimich.my.canva.site/_assets/media/be35afbefc56ca78ca2ac6396f7ed33d.jpg" alt="" loading="lazy" decoding="async" style="left:-1.5340%;top:0.0000%;width:101.5340%;height:106.0128%;"></div>
+<div class="m" style="left:4.3726%;top:55.1769%;width:42.1288%;height:39.0147%;"><img src="https://witkowskimich.my.canva.site/_assets/media/25b78991d1f93b769c441e4184e6ed21.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:-4.5863%;width:100.0000%;height:117.3974%;"></div>
+<div class="m" style="left:47.9869%;top:55.1769%;width:49.9409%;height:39.0147%;"><img src="https://witkowskimich.my.canva.site/_assets/media/612351f466ad3ca3eb058a7bb79da92a.jpg" alt="" loading="lazy" decoding="async" style="left:-0.0000%;top:-19.5138%;width:100.0000%;height:142.2028%;"></div>
 </section>
 <section class="sec" style="aspect-ratio:1366.0/920;background:#8cc8f6">
 <div class="m" style="left:4.6785%;top:6.1702%;width:92.9006%;height:91.6003%;"><img src="https://witkowskimich.my.canva.site/_assets/media/fea247d63d05b7de8e5ebd65f38b54f0.png" alt="" loading="lazy" decoding="async" style="left:-0.0191%;top:-0.0000%;width:100.0382%;height:101.0647%;"></div>
@@ -408,21 +348,21 @@
 <div class="t" style="left:4.6785%;top:2.5801%;width:2.9283%;height:2.8478%;font-size:1.6105cqw;font-weight:700;color:#0a9a92;text-align:left;line-height:1.1;letter-spacing:0em;">04</div>
 </section>
 <section class="sec" style="aspect-ratio:1366.0/3714;background:#8cc8f6">
-<div class="m" style="left:58.0339%;top:0.4661%;width:39.6602%;height:19.8697%;"><img src="https://witkowskimich.my.canva.site/_assets/media/c1c6ce77f923d3683663e9bc1139ad6a.jpg" alt="" loading="lazy" decoding="async" style="left:-20.6327%;top:0.0000%;width:150.9301%;height:100.0000%;"></div>
-<div class="m" style="left:4.1802%;top:0.4661%;width:52.6824%;height:12.0053%;"><img src="https://witkowskimich.my.canva.site/_assets/media/7b8ff5b6c75dfb2e971d27b70e622544.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></div>
-<div class="m" style="left:4.1802%;top:12.8586%;width:25.7144%;height:7.4772%;"><img src="https://witkowskimich.my.canva.site/_assets/media/28ea9a6024702147c26a34547deaa3c6.jpg" alt="" loading="lazy" decoding="async" style="left:-23.0219%;top:0.0000%;width:129.5172%;height:100.0000%;"></div>
-<div class="m" style="left:31.0325%;top:12.8586%;width:25.8301%;height:7.4772%;"><img src="https://witkowskimich.my.canva.site/_assets/media/c2fac0b6e90edf7a935077f64ac4128f.jpg" alt="" loading="lazy" decoding="async" style="left:-5.8988%;top:0.0000%;width:124.0267%;height:100.0000%;"></div>
-<div class="m" style="left:44.9112%;top:20.7127%;width:52.7829%;height:18.8185%;"><img src="https://witkowskimich.my.canva.site/_assets/media/53a80a3434409a0da4b583e22f6fb3f1.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></div>
-<div class="m" style="left:4.2468%;top:20.7127%;width:39.3954%;height:7.6833%;"><img src="https://witkowskimich.my.canva.site/_assets/media/ffe4b9d2639aef111c5fbed9bdb8eb95.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:-9.9032%;width:100.0000%;height:117.4727%;"></div>
-<div class="m" style="left:4.2468%;top:28.8222%;width:39.3954%;height:10.7090%;"><img src="https://witkowskimich.my.canva.site/_assets/media/738486359f4c2e600ceae41c9dd30209.jpg" alt="" loading="lazy" decoding="async" style="left:-13.3268%;top:-3.3140%;width:113.3268%;height:107.8449%;"></div>
-<div class="m" style="left:4.1802%;top:77.0569%;width:93.5139%;height:18.6289%;"><video src="https://witkowskimich.my.canva.site/_assets/video/39530015379dbc7351f24ebd799ce7c3.mp4" poster="https://witkowskimich.my.canva.site/_assets/video/9ac80fa84b13c25626a1d553f05330da.jpg" autoplay muted loop playsinline preload="metadata" style="left:0.0000%;top:0.0000%;width:100.0000%;height:103.7691%;"></video></div>
-<div class="m" style="left:43.2612%;top:43.2185%;width:54.4329%;height:18.2498%;"><img src="https://witkowskimich.my.canva.site/_assets/media/e3f67f71fe6e53f47bd444cca8cf954d.jpg" alt="" loading="lazy" decoding="async" style="left:-0.5007%;top:0.0000%;width:101.5607%;height:100.0000%;"></div>
-<div class="m" style="left:43.2612%;top:61.9777%;width:26.6829%;height:5.8743%;"><img src="https://witkowskimich.my.canva.site/_assets/media/5bad21dfb187ff394c441706e4282131.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:-4.2964%;width:100.0000%;height:108.5928%;"></div>
+<div class="m" style="left:58.0339%;top:0.4661%;width:39.6602%;height:19.8697%;"><img src="https://witkowskimich.my.canva.site/_assets/media/5c0cd9f3391588a36702fe1760e31880.jpg" alt="" loading="lazy" decoding="async" style="left:-20.6327%;top:0.0000%;width:150.9301%;height:100.0000%;"></div>
+<div class="m" style="left:4.1802%;top:0.4661%;width:52.6824%;height:12.0053%;"><img src="https://witkowskimich.my.canva.site/_assets/media/b5f52622b78e15bd0592f6e999ac298d.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></div>
+<div class="m" style="left:4.1802%;top:12.8586%;width:25.7144%;height:7.4772%;"><img src="https://witkowskimich.my.canva.site/_assets/media/32d21e888de575078bed161e9abb93e0.jpg" alt="" loading="lazy" decoding="async" style="left:-23.0219%;top:0.0000%;width:129.5172%;height:100.0000%;"></div>
+<div class="m" style="left:31.0325%;top:12.8586%;width:25.8301%;height:7.4772%;"><img src="https://witkowskimich.my.canva.site/_assets/media/0a4e9af3b99d4afb4a076104baff87e0.jpg" alt="" loading="lazy" decoding="async" style="left:-5.8988%;top:0.0000%;width:124.0267%;height:100.0000%;"></div>
+<div class="m" style="left:44.9112%;top:20.7127%;width:52.7829%;height:18.8185%;"><img src="https://witkowskimich.my.canva.site/_assets/media/4d813e6b81e78e3513a4ae4c187d5226.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></div>
+<div class="m" style="left:4.2468%;top:20.7127%;width:39.3954%;height:7.6833%;"><img src="https://witkowskimich.my.canva.site/_assets/media/b6a1e0cc49931f842a540f0fc2a5f050.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:-9.9032%;width:100.0000%;height:117.4727%;"></div>
+<div class="m" style="left:4.2468%;top:28.8222%;width:39.3954%;height:10.7090%;"><img src="https://witkowskimich.my.canva.site/_assets/media/897e49970e82ee4e25aa9a59771ece5c.jpg" alt="" loading="lazy" decoding="async" style="left:-13.3268%;top:-3.3140%;width:113.3268%;height:107.8449%;"></div>
+<div class="m" style="left:4.1802%;top:77.0569%;width:93.5139%;height:18.6289%;"><video src="https://witkowskimich.my.canva.site/_assets/video/39530015379dbc7351f24ebd799ce7c3.mp4" poster="https://witkowskimich.my.canva.site/_assets/video/9ac80fa84b13c25626a1d553f05330da.jpg" controls muted loop playsinline preload="metadata" style="left:0.0000%;top:0.0000%;width:100.0000%;height:103.7691%;"></video></div>
+<div class="m" style="left:43.2612%;top:43.2185%;width:54.4329%;height:18.2498%;"><img src="https://witkowskimich.my.canva.site/_assets/media/17d44c76c9650a85bede3bde66a7245d.jpg" alt="" loading="lazy" decoding="async" style="left:-0.5007%;top:0.0000%;width:101.5607%;height:100.0000%;"></div>
+<div class="m" style="left:43.2612%;top:61.9777%;width:26.6829%;height:5.8743%;"><img src="https://witkowskimich.my.canva.site/_assets/media/a59a2b13fe142af20e0f91068aceaeab.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:-4.2964%;width:100.0000%;height:108.5928%;"></div>
 <div class="m" style="left:4.2468%;top:43.2185%;width:37.0544%;height:24.6335%;"><img src="https://witkowskimich.my.canva.site/_assets/media/39429b7093de6a06c6b818b4c26b9bec.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:-0.0000%;width:100.0000%;height:102.4103%;"></div>
-<div class="m" style="left:71.3027%;top:61.9777%;width:26.3915%;height:5.8743%;"><img src="https://witkowskimich.my.canva.site/_assets/media/ced08d1e1db38a612cdb5b774ac82e98.jpg" alt="" loading="lazy" decoding="async" style="left:-0.0000%;top:-5.4163%;width:100.0000%;height:106.4427%;"></div>
-<div class="m" style="left:64.3354%;top:68.4204%;width:33.3587%;height:7.9903%;"><img src="https://witkowskimich.my.canva.site/_assets/media/d01c2d1a46523504fa3e8bc0fca84fdf.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></div>
-<div class="m" style="left:4.1802%;top:68.5030%;width:24.6678%;height:7.9077%;"><img src="https://witkowskimich.my.canva.site/_assets/media/f7f6380cdf74109b4fdb63704fde6142.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:-0.7799%;width:100.0000%;height:101.5598%;"></div>
-<div class="m" style="left:30.3853%;top:68.5473%;width:32.3792%;height:7.8634%;"><img src="https://witkowskimich.my.canva.site/_assets/media/5fc6bc058e9205cbdb465010ad7faded.jpg" alt="" loading="lazy" decoding="async" style="left:-4.4726%;top:-4.2784%;width:104.4726%;height:104.2950%;"></div>
+<div class="m" style="left:71.3027%;top:61.9777%;width:26.3915%;height:5.8743%;"><img src="https://witkowskimich.my.canva.site/_assets/media/08b9d838498a7c46e64c623d0920941b.jpg" alt="" loading="lazy" decoding="async" style="left:-0.0000%;top:-5.4163%;width:100.0000%;height:106.4427%;"></div>
+<div class="m" style="left:64.3354%;top:68.4204%;width:33.3587%;height:7.9903%;"><img src="https://witkowskimich.my.canva.site/_assets/media/08651bfedafa664e34060f900cd7efa9.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></div>
+<div class="m" style="left:4.1802%;top:68.5030%;width:24.6678%;height:7.9077%;"><img src="https://witkowskimich.my.canva.site/_assets/media/2483af03dde20b76f0c246556ebcb84f.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:-0.7799%;width:100.0000%;height:101.5598%;"></div>
+<div class="m" style="left:30.3853%;top:68.5473%;width:32.3792%;height:7.8634%;"><img src="https://witkowskimich.my.canva.site/_assets/media/7186f71adf1120d1de089c965965ad8c.jpg" alt="" loading="lazy" decoding="async" style="left:-4.4726%;top:-4.2784%;width:104.4726%;height:104.2950%;"></div>
 <div class="t" style="left:66.4861%;top:97.2509%;width:29.2826%;height:0.5816%;font-size:1.3177cqw;font-weight:700;color:#0a9a92;text-align:right;line-height:1;letter-spacing:0.025em;"><a href="#/architektura">Dalej: Architektura →</a></div>
 <div class="t" style="left:8.3358%;top:42.2797%;width:88.2870%;height:0.6940%;font-size:1.6105cqw;font-weight:700;color:#0b4a55;text-align:left;line-height:1.1;letter-spacing:0.025em;">Dubaj · 2024 · Blender / Unity HDRP</div>
 <div class="t" style="left:4.2468%;top:67.9118%;width:33.5753%;height:0.3761%;font-size:0.8785cqw;font-weight:400;color:#0b4a55;text-align:left;line-height:1;letter-spacing:0.025em;">Podgląd wzbogacony przez AI</div>
@@ -443,11 +383,11 @@
 <div class="t" style="left:4.9085%;top:0.9928%;width:2.9283%;height:3.3333%;font-size:1.6105cqw;font-weight:700;color:#0a9a92;text-align:left;line-height:1.1;letter-spacing:0.025em;">01</div>
 </section>
 <section class="sec" style="aspect-ratio:1366.0/1342;background:#8cc8f6">
-<div class="m" style="left:5.1935%;top:1.7508%;width:62.4980%;height:43.6082%;"><img src="https://witkowskimich.my.canva.site/_assets/media/826431b3fd4983361089343f2f985b21.jpg" alt="" loading="lazy" decoding="async" style="left:-2.8408%;top:-2.4314%;width:105.2082%;height:109.5449%;"></div>
-<div class="m" style="left:5.1935%;top:46.9807%;width:49.9083%;height:54.5117%;"><img src="https://witkowskimich.my.canva.site/_assets/media/7420c45f84e57b3414da668c3b065707.jpg" alt="" loading="lazy" decoding="async" style="left:-9.2336%;top:0.0000%;width:123.4060%;height:100.0000%;"></div>
-<div class="m" style="left:56.7234%;top:47.0481%;width:40.9282%;height:26.6451%;"><img src="https://witkowskimich.my.canva.site/_assets/media/f0f616a821ac94d46c7ae127aaed76aa.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></div>
-<div class="m" style="left:56.7234%;top:74.7953%;width:40.9282%;height:26.6972%;"><img src="https://witkowskimich.my.canva.site/_assets/media/b05fc1bb0a156ccb89ddd355064e4acc.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></div>
-<div class="m" style="left:69.1587%;top:1.7508%;width:28.1889%;height:43.6082%;"><video src="https://witkowskimich.my.canva.site/_assets/video/bcbb49e4a85dda60b2a69a2220fed5ca.mp4" poster="https://witkowskimich.my.canva.site/_assets/video/a428a27b6645b2eeb671211f95f1ddb0.jpg" autoplay muted loop playsinline preload="metadata" style="left:-0.2134%;top:-17.4953%;width:100.4268%;height:117.4953%;"></video></div>
+<div class="m" style="left:5.1935%;top:1.7508%;width:62.4980%;height:43.6082%;"><img src="https://witkowskimich.my.canva.site/_assets/media/8985c46eee6c705a36c390252ba6ee77.jpg" alt="" loading="lazy" decoding="async" style="left:-2.8408%;top:-2.4314%;width:105.2082%;height:109.5449%;"></div>
+<div class="m" style="left:5.1935%;top:46.9807%;width:49.9083%;height:54.5117%;"><img src="https://witkowskimich.my.canva.site/_assets/media/6d55b6ae79266776944939e93ffa2627.jpg" alt="" loading="lazy" decoding="async" style="left:-9.2336%;top:0.0000%;width:123.4060%;height:100.0000%;"></div>
+<div class="m" style="left:56.7234%;top:47.0481%;width:40.9282%;height:26.6451%;"><img src="https://witkowskimich.my.canva.site/_assets/media/f5a7619dec6bf663d903625b805d52cb.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></div>
+<div class="m" style="left:56.7234%;top:74.7953%;width:40.9282%;height:26.6972%;"><img src="https://witkowskimich.my.canva.site/_assets/media/d143b0eda840dfcd65085dc3b4e10a59.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></div>
+<div class="m" style="left:69.1587%;top:1.7508%;width:28.1889%;height:43.6082%;"><video src="https://witkowskimich.my.canva.site/_assets/video/bcbb49e4a85dda60b2a69a2220fed5ca.mp4" poster="https://witkowskimich.my.canva.site/_assets/video/a428a27b6645b2eeb671211f95f1ddb0.jpg" controls muted loop playsinline preload="metadata" style="left:-0.2134%;top:-17.4953%;width:100.4268%;height:117.4953%;"></video></div>
 </section>
 <section class="sec" style="aspect-ratio:1366.0/811;background:#8cc8f6">
 <div class="m" style="left:4.9087%;top:7.4816%;width:92.7786%;height:90.5339%;"><img src="https://witkowskimich.my.canva.site/_assets/media/7e81adcd3c1f366e3d558dea9bc23588.png" alt="" loading="lazy" decoding="async" style="left:-0.0000%;top:-3.3738%;width:100.0000%;height:108.7444%;"></div>
@@ -456,36 +396,36 @@
 <div class="t" style="left:4.9087%;top:0.9622%;width:2.9283%;height:3.2306%;font-size:1.6105cqw;font-weight:700;color:#0a9a92;text-align:left;line-height:1.1;letter-spacing:0.025em;">02</div>
 </section>
 <section class="sec" style="aspect-ratio:1366.0/768;background:#8cc8f6">
-<div class="m" style="left:4.8561%;top:1.1543%;width:92.7723%;height:98.8457%;"><img src="https://witkowskimich.my.canva.site/_assets/media/4faf873d74e0698eeaabe5ea4be6ad50.jpg" alt="" loading="lazy" decoding="async" style="left:-3.1025%;top:-1.5327%;width:103.1025%;height:109.9385%;"></div>
+<div class="m" style="left:4.8561%;top:1.1543%;width:92.7723%;height:98.8457%;"><img src="https://witkowskimich.my.canva.site/_assets/media/e87986b00631feccda339ff1369959d7.jpg" alt="" loading="lazy" decoding="async" style="left:-3.1025%;top:-1.5327%;width:103.1025%;height:109.9385%;"></div>
 </section>
 <section class="sec" style="aspect-ratio:1366.0/1309;background:#8cc8f6">
-<div class="m" style="left:5.0293%;top:1.5244%;width:66.4856%;height:44.1249%;"><img src="https://witkowskimich.my.canva.site/_assets/media/38a20b8966d5e4aaed343406a58fa097.jpg" alt="" loading="lazy" decoding="async" style="left:-4.6261%;top:-2.9399%;width:104.6315%;height:104.0584%;"></div>
-<div class="m" style="left:73.0366%;top:1.4640%;width:24.2403%;height:14.0853%;"><img src="https://witkowskimich.my.canva.site/_assets/media/cab9830d43e79b2da96999f0253f8fcf.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:-4.3824%;width:100.0000%;height:114.0401%;"></div>
-<div class="m" style="left:73.0366%;top:32.0882%;width:24.2403%;height:13.5611%;"><img src="https://witkowskimich.my.canva.site/_assets/media/6a4a18025ca2ba789e3a04ca379fd588.jpg" alt="" loading="lazy" decoding="async" style="left:-3.8493%;top:-5.6754%;width:103.8493%;height:121.3127%;"></div>
-<div class="m" style="left:73.0366%;top:17.1069%;width:24.2403%;height:13.4535%;"><img src="https://witkowskimich.my.canva.site/_assets/media/f3d9a0568f7097bf121f8daf98c36952.jpg" alt="" loading="lazy" decoding="async" style="left:-0.0000%;top:-8.2671%;width:100.0000%;height:119.3176%;"></div>
-<div class="m" style="left:5.0293%;top:47.1772%;width:92.2477%;height:48.3840%;"><video src="https://witkowskimich.my.canva.site/_assets/video/317db905aaed02eca150fe3b36c9c9ff.mp4" poster="https://witkowskimich.my.canva.site/_assets/video/0d3b9adfd995e544e38d60f41d7cdffa.jpg" autoplay muted loop playsinline preload="metadata" style="left:-0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></video></div>
+<div class="m" style="left:5.0293%;top:1.5244%;width:66.4856%;height:44.1249%;"><img src="https://witkowskimich.my.canva.site/_assets/media/304132ad66f505eeec45d3ec8c75f86f.jpg" alt="" loading="lazy" decoding="async" style="left:-4.6261%;top:-2.9399%;width:104.6315%;height:104.0584%;"></div>
+<div class="m" style="left:73.0366%;top:1.4640%;width:24.2403%;height:14.0853%;"><img src="https://witkowskimich.my.canva.site/_assets/media/49559cbc1ff3ff9dcc01613b390c9836.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:-4.3824%;width:100.0000%;height:114.0401%;"></div>
+<div class="m" style="left:73.0366%;top:32.0882%;width:24.2403%;height:13.5611%;"><img src="https://witkowskimich.my.canva.site/_assets/media/4ef7986cc37e8b76fdef01fdd2220ade.jpg" alt="" loading="lazy" decoding="async" style="left:-3.8493%;top:-5.6754%;width:103.8493%;height:121.3127%;"></div>
+<div class="m" style="left:73.0366%;top:17.1069%;width:24.2403%;height:13.4535%;"><img src="https://witkowskimich.my.canva.site/_assets/media/8e63e1b96c4eafd5ad98ae700610eded.jpg" alt="" loading="lazy" decoding="async" style="left:-0.0000%;top:-8.2671%;width:100.0000%;height:119.3176%;"></div>
+<div class="m" style="left:5.0293%;top:47.1772%;width:92.2477%;height:48.3840%;"><video src="https://witkowskimich.my.canva.site/_assets/video/317db905aaed02eca150fe3b36c9c9ff.mp4" poster="https://witkowskimich.my.canva.site/_assets/video/0d3b9adfd995e544e38d60f41d7cdffa.jpg" controls muted loop playsinline preload="metadata" style="left:-0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></video></div>
 </section>
 <section class="sec" style="aspect-ratio:1366.0/7671;background:#8cc8f6">
 <div class="m" style="left:4.9087%;top:0.4403%;width:92.7786%;height:12.3248%;"><img src="https://witkowskimich.my.canva.site/_assets/media/fabd03426e758dd76c39ed73f990a031.png" alt="" loading="lazy" decoding="async" style="left:-0.0000%;top:-0.0000%;width:100.0000%;height:101.3753%;"></div>
-<div class="m" style="left:4.9087%;top:13.2516%;width:48.9241%;height:8.9592%;"><img src="https://witkowskimich.my.canva.site/_assets/media/ecd1de281f9eea56aa71428399ce91d1.jpg" alt="" loading="lazy" decoding="async" style="left:-12.9560%;top:0.0000%;width:133.8438%;height:100.0000%;"></div>
-<div class="m" style="left:55.0088%;top:13.2516%;width:42.6785%;height:4.3858%;"><img src="https://witkowskimich.my.canva.site/_assets/media/d1e4f313d9dd1c6e33ea79c1bac691b6.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></div>
-<div class="m" style="left:4.9087%;top:22.4715%;width:92.7786%;height:9.6163%;"><img src="https://witkowskimich.my.canva.site/_assets/media/0c490547c95c4feab29444917476c067.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:0.0000%;width:101.3732%;height:100.0000%;"></div>
-<div class="m" style="left:55.0088%;top:17.7312%;width:42.9744%;height:4.4796%;"><img src="https://witkowskimich.my.canva.site/_assets/media/582c5f32043415719b1cf73d21e78e94.jpg" alt="" loading="lazy" decoding="async" style="left:-0.5719%;top:-0.0000%;width:101.1438%;height:100.0000%;"></div>
-<div class="m" style="left:4.9087%;top:48.8682%;width:92.7786%;height:8.2781%;"><video src="https://witkowskimich.my.canva.site/_assets/video/da7469f91c0ba93e8019e018e56a7a8c.mp4" poster="https://witkowskimich.my.canva.site/_assets/video/4098643ccc5a4cae5cda3721802d2e54.jpg" autoplay muted loop playsinline preload="metadata" style="left:0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></video></div>
-<div class="m" style="left:4.9087%;top:42.7469%;width:47.4479%;height:5.8385%;"><img src="https://witkowskimich.my.canva.site/_assets/media/aac9985670ec4e6a85095ef750af69ce.png" alt="" loading="lazy" decoding="async" style="left:-3.3772%;top:-0.0000%;width:111.3038%;height:100.0000%;"></div>
-<div class="m" style="left:53.8328%;top:42.7469%;width:43.8545%;height:5.8385%;"><img src="https://witkowskimich.my.canva.site/_assets/media/ccac23e6693eda5c6f667b274e525786.png" alt="" loading="lazy" decoding="async" style="left:-2.8523%;top:-0.0000%;width:128.1118%;height:107.2408%;"></div>
-<div class="m" style="left:5.2046%;top:63.7801%;width:92.7786%;height:8.1167%;"><video src="https://witkowskimich.my.canva.site/_assets/video/917562ebe3dc85227dcfd3d083aba34c.mp4" poster="https://witkowskimich.my.canva.site/_assets/video/0d220cd138208f92bfabca59d786613f.jpg" autoplay muted loop playsinline preload="metadata" style="left:0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></video></div>
-<div class="m" style="left:54.2733%;top:58.0381%;width:43.7100%;height:5.4874%;"><img src="https://witkowskimich.my.canva.site/_assets/media/fc5bbef2baeb65905613bd6ae41a9725.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></div>
-<div class="m" style="left:4.9087%;top:58.0381%;width:47.9620%;height:5.4874%;"><img src="https://witkowskimich.my.canva.site/_assets/media/07d9ddb74b9f006125ad78f3d3a61c8d.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:-0.0000%;width:100.0000%;height:100.0000%;"></div>
-<div class="m" style="left:4.9087%;top:72.8321%;width:93.0745%;height:3.4739%;"><img src="https://witkowskimich.my.canva.site/_assets/media/c4195e4221b370e8550e152cb37d2465.jpg" alt="" loading="lazy" decoding="async" style="left:-0.0000%;top:-42.2184%;width:100.0000%;height:154.8586%;"></div>
-<div class="m" style="left:4.9087%;top:82.5348%;width:93.0745%;height:5.4653%;"><img src="https://witkowskimich.my.canva.site/_assets/media/ac2cc4b92ef08020b9f520416623936a.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:-28.3736%;width:100.0000%;height:147.7127%;"></div>
-<div class="m" style="left:53.8328%;top:76.5279%;width:43.8545%;height:5.7853%;"><img src="https://witkowskimich.my.canva.site/_assets/media/3f0db1ddec04c716e8632533761e875b.jpg" alt="" loading="lazy" decoding="async" style="left:-42.7167%;top:0.0000%;width:147.3166%;height:106.6367%;"></div>
-<div class="m" style="left:4.9087%;top:88.2217%;width:46.3893%;height:5.0780%;"><img src="https://witkowskimich.my.canva.site/_assets/media/91294390464ab16d8e87426fa30e81c1.jpg" alt="" loading="lazy" decoding="async" style="left:-0.7687%;top:0.0000%;width:101.5373%;height:100.0000%;"></div>
-<div class="m" style="left:52.3567%;top:88.2217%;width:45.6266%;height:5.0780%;"><img src="https://witkowskimich.my.canva.site/_assets/media/f59e5e1e9314536a60948de1f91c9dec.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></div>
-<div class="m" style="left:4.9087%;top:93.5214%;width:46.3893%;height:4.4187%;"><img src="https://witkowskimich.my.canva.site/_assets/media/57b1ea656e3990c2e9b95aca9490ef86.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:-10.1363%;width:100.0000%;height:116.2977%;"></div>
-<div class="m" style="left:52.3567%;top:93.5214%;width:45.6266%;height:4.4187%;"><img src="https://witkowskimich.my.canva.site/_assets/media/6666a15c720a51d6aa69a563c6aa26d3.png" alt="" loading="lazy" decoding="async" style="left:-4.3848%;top:-0.0000%;width:108.7696%;height:100.0000%;"></div>
-<div class="m" style="left:4.9087%;top:76.5279%;width:47.9620%;height:5.7853%;"><img src="https://witkowskimich.my.canva.site/_assets/media/2c5318f7761f5f497f34964c6c05857c.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:-0.0000%;width:124.0995%;height:100.0000%;"></div>
-<div class="m" style="left:4.9087%;top:32.4030%;width:92.4672%;height:9.2589%;"><video src="https://witkowskimich.my.canva.site/_assets/video/6bd08af98be57cd1fcb39a43bc99bfea.mp4" poster="https://witkowskimich.my.canva.site/_assets/video/66e545c36e25b1c5c10a9ab100bd9096.jpg" autoplay muted loop playsinline preload="metadata" style="left:0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></video></div>
+<div class="m" style="left:4.9087%;top:13.2516%;width:48.9241%;height:8.9592%;"><img src="https://witkowskimich.my.canva.site/_assets/media/1255baea2c12d2b4fbebc8eced89282d.jpg" alt="" loading="lazy" decoding="async" style="left:-12.9560%;top:0.0000%;width:133.8438%;height:100.0000%;"></div>
+<div class="m" style="left:55.0088%;top:13.2516%;width:42.6785%;height:4.3858%;"><img src="https://witkowskimich.my.canva.site/_assets/media/65a904f004fd5bd576b3efa558aed4d9.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></div>
+<div class="m" style="left:4.9087%;top:22.4715%;width:92.7786%;height:9.6163%;"><img src="https://witkowskimich.my.canva.site/_assets/media/d2d873d33c06e025bcd66a122f3df85e.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:0.0000%;width:101.3732%;height:100.0000%;"></div>
+<div class="m" style="left:55.0088%;top:17.7312%;width:42.9744%;height:4.4796%;"><img src="https://witkowskimich.my.canva.site/_assets/media/a174d12273fa815eab30e4c81ba1ad42.jpg" alt="" loading="lazy" decoding="async" style="left:-0.5719%;top:-0.0000%;width:101.1438%;height:100.0000%;"></div>
+<div class="m" style="left:4.9087%;top:48.8682%;width:92.7786%;height:8.2781%;"><video src="https://witkowskimich.my.canva.site/_assets/video/da7469f91c0ba93e8019e018e56a7a8c.mp4" poster="https://witkowskimich.my.canva.site/_assets/video/4098643ccc5a4cae5cda3721802d2e54.jpg" controls muted loop playsinline preload="metadata" style="left:0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></video></div>
+<div class="m" style="left:4.9087%;top:42.7469%;width:47.4479%;height:5.8385%;"><img src="https://witkowskimich.my.canva.site/_assets/media/5726d989a5371064ec993ef0242fd42e.png" alt="" loading="lazy" decoding="async" style="left:-3.3772%;top:-0.0000%;width:111.3038%;height:100.0000%;"></div>
+<div class="m" style="left:53.8328%;top:42.7469%;width:43.8545%;height:5.8385%;"><img src="https://witkowskimich.my.canva.site/_assets/media/37dcda4b68f4deadd83e754787cfe83e.png" alt="" loading="lazy" decoding="async" style="left:-2.8523%;top:-0.0000%;width:128.1118%;height:107.2408%;"></div>
+<div class="m" style="left:5.2046%;top:63.7801%;width:92.7786%;height:8.1167%;"><video src="https://witkowskimich.my.canva.site/_assets/video/917562ebe3dc85227dcfd3d083aba34c.mp4" poster="https://witkowskimich.my.canva.site/_assets/video/0d220cd138208f92bfabca59d786613f.jpg" controls muted loop playsinline preload="metadata" style="left:0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></video></div>
+<div class="m" style="left:54.2733%;top:58.0381%;width:43.7100%;height:5.4874%;"><img src="https://witkowskimich.my.canva.site/_assets/media/a31474efcb2895b05af795368d379557.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></div>
+<div class="m" style="left:4.9087%;top:58.0381%;width:47.9620%;height:5.4874%;"><img src="https://witkowskimich.my.canva.site/_assets/media/0e835015992be8339c8e764875ad85f0.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:-0.0000%;width:100.0000%;height:100.0000%;"></div>
+<div class="m" style="left:4.9087%;top:72.8321%;width:93.0745%;height:3.4739%;"><img src="https://witkowskimich.my.canva.site/_assets/media/1d1066c39889ffd795d7d23c70b4e3c0.jpg" alt="" loading="lazy" decoding="async" style="left:-0.0000%;top:-42.2184%;width:100.0000%;height:154.8586%;"></div>
+<div class="m" style="left:4.9087%;top:82.5348%;width:93.0745%;height:5.4653%;"><img src="https://witkowskimich.my.canva.site/_assets/media/b478e0a0f8dbf45eb9fb987bdd06a8c1.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:-28.3736%;width:100.0000%;height:147.7127%;"></div>
+<div class="m" style="left:53.8328%;top:76.5279%;width:43.8545%;height:5.7853%;"><img src="https://witkowskimich.my.canva.site/_assets/media/b79107d71540032f5e916463515c2b85.jpg" alt="" loading="lazy" decoding="async" style="left:-42.7167%;top:0.0000%;width:147.3166%;height:106.6367%;"></div>
+<div class="m" style="left:4.9087%;top:88.2217%;width:46.3893%;height:5.0780%;"><img src="https://witkowskimich.my.canva.site/_assets/media/be0e2f78f399b78da3d1c189201b9e01.jpg" alt="" loading="lazy" decoding="async" style="left:-0.7687%;top:0.0000%;width:101.5373%;height:100.0000%;"></div>
+<div class="m" style="left:52.3567%;top:88.2217%;width:45.6266%;height:5.0780%;"><img src="https://witkowskimich.my.canva.site/_assets/media/e865b576e20d434cae5f05fb630bb645.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></div>
+<div class="m" style="left:4.9087%;top:93.5214%;width:46.3893%;height:4.4187%;"><img src="https://witkowskimich.my.canva.site/_assets/media/19fc4b87ad8a585d6eadd69ea186d01d.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:-10.1363%;width:100.0000%;height:116.2977%;"></div>
+<div class="m" style="left:52.3567%;top:93.5214%;width:45.6266%;height:4.4187%;"><img src="https://witkowskimich.my.canva.site/_assets/media/e455fb9df1550fd06b0da7a96974f65b.png" alt="" loading="lazy" decoding="async" style="left:-4.3848%;top:-0.0000%;width:108.7696%;height:100.0000%;"></div>
+<div class="m" style="left:4.9087%;top:76.5279%;width:47.9620%;height:5.7853%;"><img src="https://witkowskimich.my.canva.site/_assets/media/46d7f9af7c30bcb8f2ec8207b1470472.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:-0.0000%;width:124.0995%;height:100.0000%;"></div>
+<div class="m" style="left:4.9087%;top:32.4030%;width:92.4672%;height:9.2589%;"><video src="https://witkowskimich.my.canva.site/_assets/video/6bd08af98be57cd1fcb39a43bc99bfea.mp4" poster="https://witkowskimich.my.canva.site/_assets/video/66e545c36e25b1c5c10a9ab100bd9096.jpg" controls muted loop playsinline preload="metadata" style="left:0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></video></div>
 <div class="t" style="left:8.1298%;top:0.1017%;width:88.2870%;height:0.3360%;font-size:1.6105cqw;font-weight:700;color:#0b4a55;text-align:left;line-height:1.1;letter-spacing:0.025em;">Kanada · 2023 · Blender / Unity HDRP</div>
 <div class="t" style="left:64.1120%;top:12.8032%;width:33.5753%;height:0.1821%;font-size:0.8785cqw;font-weight:400;color:#0b4a55;text-align:right;line-height:1;letter-spacing:0.025em;">Podgląd wzbogacony przez AI</div>
 <div class="t" style="left:66.4861%;top:98.9632%;width:29.2826%;height:0.2816%;font-size:1.3177cqw;font-weight:700;color:#0a9a92;text-align:right;line-height:1;letter-spacing:0.025em;"><a href="#/zjezdzalnie">Dalej: Zjeżdżalnie →</a></div>
@@ -507,34 +447,34 @@
 <div class="t" style="left:4.2606%;top:64.9351%;width:58.5652%;height:13.5065%;font-size:1.4641cqw;font-weight:400;color:#0b4a55;text-align:left;line-height:1.4;letter-spacing:0.025em;">Zjeżdżalnie wodne, wieże zjeżdżalni i wodne place zabaw: modele produkcyjne i wizualizacje.</div>
 </section>
 <section class="sec" style="aspect-ratio:1366.0/768;background:#8cc8f6">
-<div class="m" style="left:7.4780%;top:7.8125%;width:85.0439%;height:90.3034%;"><img src="https://witkowskimich.my.canva.site/_assets/media/91d02c6825f4e9ce3d661eaddc73dac2.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:-5.5153%;width:100.0000%;height:109.7155%;"></div>
+<div class="m" style="left:7.4780%;top:7.8125%;width:85.0439%;height:90.3034%;"><img src="https://witkowskimich.my.canva.site/_assets/media/a4ae7c21e63718a4d2f18d68937d5df7.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:-5.5153%;width:100.0000%;height:109.7155%;"></div>
 <div class="t" style="left:7.4780%;top:3.1250%;width:91.5081%;height:3.3555%;font-size:1.6105cqw;font-weight:700;color:#0b4a55;text-align:left;line-height:1.1;letter-spacing:0.025em;">Katar · 2025 · Grasshopper / Blender</div>
 </section>
 <section class="sec" style="aspect-ratio:1366.0/768;background:#8cc8f6">
-<div class="m" style="left:7.4780%;top:0.6380%;width:85.0439%;height:98.7279%;"><img src="https://witkowskimich.my.canva.site/_assets/media/92cecd5a6a6f2c45768cc9c527dcdc0c.jpg" alt="" loading="lazy" decoding="async" style="left:-0.6318%;top:-3.4343%;width:100.6318%;height:104.3285%;"></div>
+<div class="m" style="left:7.4780%;top:0.6380%;width:85.0439%;height:98.7279%;"><img src="https://witkowskimich.my.canva.site/_assets/media/4f5a9132ea6679bde6bcac3cff4baf52.jpg" alt="" loading="lazy" decoding="async" style="left:-0.6318%;top:-3.4343%;width:100.6318%;height:104.3285%;"></div>
 </section>
 <section class="sec" style="aspect-ratio:1366.0/1504;background:#8cc8f6">
-<div class="m" style="left:7.4780%;top:1.3298%;width:85.0439%;height:47.6463%;"><img src="https://witkowskimich.my.canva.site/_assets/media/f58ef7b0df33b23c24102fda80de4691.jpg" alt="Wizualizacja kompleksu zjeżdżalni wodnych – Beius, widok z góry" loading="lazy" decoding="async" style="left:0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></div>
-<div class="m" style="left:7.4780%;top:51.0638%;width:85.0439%;height:47.6463%;"><img src="https://witkowskimich.my.canva.site/_assets/media/970d42cd7e14292247c8c1135d03d21d.jpg" alt="Wizualizacja zjeżdżalni wodnych – Beius, zbliżenie na rury" loading="lazy" decoding="async" style="left:0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></div>
+<div class="m" style="left:7.4780%;top:1.3298%;width:85.0439%;height:47.6463%;"><img src="https://witkowskimich.my.canva.site/_assets/media/bcbcbe7d259818e2680a5d46cd0a03fb.jpg" alt="Wizualizacja kompleksu zjeżdżalni wodnych – Beius, widok z góry" loading="lazy" decoding="async" style="left:0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></div>
+<div class="m" style="left:7.4780%;top:51.0638%;width:85.0439%;height:47.6463%;"><img src="https://witkowskimich.my.canva.site/_assets/media/a37125512102194f67254260cf3af777.jpg" alt="Wizualizacja zjeżdżalni wodnych – Beius, zbliżenie na rury" loading="lazy" decoding="async" style="left:0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></div>
 </section>
 <section class="sec" style="aspect-ratio:1366.0/768;background:#8cc8f6">
-<div class="m" style="left:7.4780%;top:5.9635%;width:85.0439%;height:88.0716%;"><img src="https://witkowskimich.my.canva.site/_assets/media/5e7a78033a020b4cc65727ceb434ebd7.jpg" alt="" loading="lazy" decoding="async" style="left:-0.1360%;top:-3.2585%;width:100.2712%;height:103.2585%;"></div>
+<div class="m" style="left:7.4780%;top:5.9635%;width:85.0439%;height:88.0716%;"><img src="https://witkowskimich.my.canva.site/_assets/media/b90c946e57fe75ea5634c02dadeb0641.jpg" alt="" loading="lazy" decoding="async" style="left:-0.1360%;top:-3.2585%;width:100.2712%;height:103.2585%;"></div>
 </section>
 <section class="sec" style="aspect-ratio:1366.0/768;background:#8cc8f6">
-<div class="m" style="left:7.4780%;top:2.5130%;width:85.0439%;height:94.9622%;"><img src="https://witkowskimich.my.canva.site/_assets/media/8ebef9130cc4d0c9aacd4a218d83f252.jpg" alt="" loading="lazy" decoding="async" style="left:-1.1053%;top:0.0000%;width:101.8043%;height:100.0000%;"></div>
+<div class="m" style="left:7.4780%;top:2.5130%;width:85.0439%;height:94.9622%;"><img src="https://witkowskimich.my.canva.site/_assets/media/dcfabfbc60bc9aa83213bd55060f2a78.jpg" alt="" loading="lazy" decoding="async" style="left:-1.1053%;top:0.0000%;width:101.8043%;height:100.0000%;"></div>
 </section>
 <section class="sec" style="aspect-ratio:1366.0/768;background:#8cc8f6">
-<div class="m" style="left:7.4780%;top:4.6224%;width:85.0439%;height:90.7448%;"><img src="https://witkowskimich.my.canva.site/_assets/media/9185028008d4767843addf564d0b9af7.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:-3.1840%;width:100.0000%;height:105.7094%;"></div>
+<div class="m" style="left:7.4780%;top:4.6224%;width:85.0439%;height:90.7448%;"><img src="https://witkowskimich.my.canva.site/_assets/media/502f08a655ce6216de7c74b145e89484.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:-3.1840%;width:100.0000%;height:105.7094%;"></div>
 </section>
 <section class="sec" style="aspect-ratio:1366.0/768;background:#8cc8f6">
-<div class="m" style="left:7.4780%;top:2.6172%;width:85.0439%;height:94.7630%;"><img src="https://witkowskimich.my.canva.site/_assets/media/cd6ff328a1f2848ab528da34158c7e33.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:-3.5368%;width:100.0000%;height:106.6806%;"></div>
+<div class="m" style="left:7.4780%;top:2.6172%;width:85.0439%;height:94.7630%;"><img src="https://witkowskimich.my.canva.site/_assets/media/e9d942748c5bba81211643ec22ecdb7b.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:-3.5368%;width:100.0000%;height:106.6806%;"></div>
 </section>
 <section class="sec" style="aspect-ratio:1366.0/768;background:#8cc8f6">
-<div class="m" style="left:7.4780%;top:4.1927%;width:85.0439%;height:91.6289%;"><img src="https://witkowskimich.my.canva.site/_assets/media/1799d1b2c829ffe81ab16cdbc1908751.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:-0.9933%;width:100.0000%;height:104.2077%;"></div>
+<div class="m" style="left:7.4780%;top:4.1927%;width:85.0439%;height:91.6289%;"><img src="https://witkowskimich.my.canva.site/_assets/media/b38300085a3b4c250f2d8829cc7d3ccd.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:-0.9933%;width:100.0000%;height:104.2077%;"></div>
 </section>
 <section class="sec" style="aspect-ratio:1366.0/1585;background:#8cc8f6">
-<div class="m" style="left:7.4780%;top:1.2618%;width:85.0439%;height:40.4625%;"><img src="https://witkowskimich.my.canva.site/_assets/media/30449f8fe945b220a775bd9bedbb48f9.jpg" alt="" loading="lazy" decoding="async" style="left:-0.5604%;top:-5.7677%;width:100.5604%;height:112.9574%;"></div>
-<div class="m" style="left:7.4780%;top:43.8486%;width:85.0439%;height:46.8164%;"><img src="https://witkowskimich.my.canva.site/_assets/media/0ce9ade605b4df5a75ca3491666228f1.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></div>
+<div class="m" style="left:7.4780%;top:1.2618%;width:85.0439%;height:40.4625%;"><img src="https://witkowskimich.my.canva.site/_assets/media/5fe49c024531cfded483f412da3d2fae.jpg" alt="" loading="lazy" decoding="async" style="left:-0.5604%;top:-5.7677%;width:100.5604%;height:112.9574%;"></div>
+<div class="m" style="left:7.4780%;top:43.8486%;width:85.0439%;height:46.8164%;"><img src="https://witkowskimich.my.canva.site/_assets/media/17ea3b62ec03b918c03091ffd54c31ee.jpg" alt="" loading="lazy" decoding="async" style="left:0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></div>
 <div class="t" style="left:63.2394%;top:94.0063%;width:29.2826%;height:1.3628%;font-size:1.3177cqw;font-weight:700;color:#0a9a92;text-align:right;line-height:1;letter-spacing:0.025em;"><a href="#/narzedzia-proceduralne">Dalej: Narzędzia proceduralne →</a></div>
 </section>
 </main>
@@ -545,8 +485,8 @@
 <div class="t" style="left:4.2606%;top:24.0209%;width:43.9239%;height:4.3864%;font-size:1.0249cqw;font-weight:700;color:#ffffff;text-align:left;line-height:1;letter-spacing:0.025em;">NARZĘDZIA I DODATKI</div>
 </section>
 <section class="sec" style="aspect-ratio:1366.0/5879;background:#8cc8f6">
-<div class="m" style="left:4.2606%;top:4.4906%;width:73.2064%;height:9.5680%;"><video src="https://witkowskimich.my.canva.site/_assets/video/0766cfddfcc5e2cc7327ddce4b26a21a.mp4" poster="https://witkowskimich.my.canva.site/_assets/video/c422ff0eeaee11d89dd4e5de7cb819bf.jpg" autoplay muted loop playsinline preload="metadata" style="left:0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></video></div>
-<div class="m" style="left:4.2606%;top:17.9963%;width:73.2064%;height:9.5680%;"><video src="https://witkowskimich.my.canva.site/_assets/video/f0da3110f93aba2e58677a2b3648b446.mp4" poster="https://witkowskimich.my.canva.site/_assets/video/55034740f6696e90acafa284182f97a3.jpg" autoplay muted loop playsinline preload="metadata" style="left:-0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></video></div>
+<div class="m" style="left:4.2606%;top:4.4906%;width:73.2064%;height:9.5680%;"><video src="https://witkowskimich.my.canva.site/_assets/video/0766cfddfcc5e2cc7327ddce4b26a21a.mp4" poster="https://witkowskimich.my.canva.site/_assets/video/c422ff0eeaee11d89dd4e5de7cb819bf.jpg" controls muted loop playsinline preload="metadata" style="left:0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></video></div>
+<div class="m" style="left:4.2606%;top:17.9963%;width:73.2064%;height:9.5680%;"><video src="https://witkowskimich.my.canva.site/_assets/video/f0da3110f93aba2e58677a2b3648b446.mp4" poster="https://witkowskimich.my.canva.site/_assets/video/55034740f6696e90acafa284182f97a3.jpg" controls muted loop playsinline preload="metadata" style="left:-0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></video></div>
 <div class="t" style="left:4.2606%;top:0.9320%;width:91.5081%;height:0.4384%;font-size:1.6105cqw;font-weight:700;color:#0b4a55;text-align:left;line-height:1.1;letter-spacing:0.025em;">Slide Geometry Nodes (Amnon) · 2026 · Blender · Geometry Nodes</div>
 <div class="t" style="left:4.2606%;top:3.8475%;width:91.5081%;height:0.4384%;font-size:1.6105cqw;font-weight:700;color:#0b4a55;text-align:left;line-height:1.1;letter-spacing:0.025em;">Yolla · dodatek do zjeżdżalni · 2026 · Blender · Python</div>
 <div class="t" style="left:4.2606%;top:1.6670%;width:91.5081%;height:1.8081%;font-size:1.3909cqw;font-weight:400;color:#0b4a55;text-align:left;line-height:1.5;letter-spacing:0.025em;">System nodów, który buduje kompletną zjeżdżalnię rurową ze stosu modyfikatorów: element startowy, elementy rury (proste i katalogowe łuki Ø1000) oraz wannę końcową. Każdy element kontynuuje poprzedni na podstawie typu, promienia, kąta i obrotu, więc cała trasa aktualizuje się na bieżąco. Generuje rurę z kołnierzami, obejmami, izolacją i ramionami podpór oraz oblicza długość osi, spadek wysokości i nachylenie każdego elementu.</div>
@@ -559,22 +499,22 @@
 <div class="t" style="left:4.2606%;top:43.0378%;width:91.5081%;height:0.4384%;font-size:1.6105cqw;font-weight:700;color:#0b4a55;text-align:left;line-height:1.1;letter-spacing:0.025em;">Generator balustrad · 2026 · Blender · Geometry Nodes</div>
 <div class="t" style="left:4.2606%;top:43.7830%;width:91.5081%;height:1.8081%;font-size:1.3909cqw;font-weight:400;color:#0b4a55;text-align:left;line-height:1.5;letter-spacing:0.025em;">Generator Geometry Nodes, który buduje kompletne balustrady balkonowe z płaskiego pasa pionowych ścian narysowanego wzdłuż krawędzi płyty. Krzywa bazowa powstaje z dolnych krawędzi; pochwyty i listwy maskujące biegną wzdłuż niej, a wypełnienie to pionowe pręty albo pełne tafle szkła. Słupki rozstawione są w równych modułach na każdym boku, narożniki ostrzejsze niż 8° dostają słupek narożny, a łagodne łuki pozostają gładkie.</div>
 <div class="t" style="left:79.7950%;top:45.9602%;width:15.9590%;height:5.1624%;font-size:1.0981cqw;font-weight:400;color:#0b4a55;text-align:left;line-height:1.5;letter-spacing:0.025em;">Rysujesz tylko obrys: pionowe ściany o stałej wysokości z normalnymi skierowanymi na zewnątrz. Rozstaw prętów i szerokość modułu to wartości docelowe – generator zaokrągla je tak, by każdy bok dostał całe, równe moduły. Zmiana trybu wypełnienia z prętów na panele zamienia wypełnienie na szkło ze słupkami i mocowaniami; ostra krawędź wymusza dodatkowy słupek.</div>
-<div class="m" style="left:4.2606%;top:45.9602%;width:73.2064%;height:9.5680%;"><video src="https://witkowskimich.my.canva.site/_assets/video/76510d2d41925bfb2891f881306074a1.mp4" poster="https://witkowskimich.my.canva.site/_assets/video/b914c6e0108cd9539133f31d5fafb1d3.jpg" autoplay muted loop playsinline preload="metadata" style="left:-0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></video></div>
+<div class="m" style="left:4.2606%;top:45.9602%;width:73.2064%;height:9.5680%;"><video src="https://witkowskimich.my.canva.site/_assets/video/76510d2d41925bfb2891f881306074a1.mp4" poster="https://witkowskimich.my.canva.site/_assets/video/b914c6e0108cd9539133f31d5fafb1d3.jpg" controls muted loop playsinline preload="metadata" style="left:-0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></video></div>
 <div class="m" style="left:4.2606%;top:56.2000%;width:44.6559%;height:12.3048%;"><img src="https://witkowskimich.my.canva.site/_assets/media/4d804eb810023ed670f5700cda1b658a.png" alt="OC_Balustrady_V_1.0 modifier stack and fill, panel and post parameters" loading="lazy" decoding="async" style="left:0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></div>
 <div class="m" style="left:51.1127%;top:56.2000%;width:44.6559%;height:13.2420%;"><img src="https://witkowskimich.my.canva.site/_assets/media/5d75633ca11c7e79ef8db9707b78b3e6.png" alt="OC_Balustrady_V_1.0 parameters: post geometry, custom post and fixings" loading="lazy" decoding="async" style="left:0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></div>
 <div class="t" style="left:4.2606%;top:70.4234%;width:91.5081%;height:0.4384%;font-size:1.6105cqw;font-weight:700;color:#0b4a55;text-align:left;line-height:1.1;letter-spacing:0.025em;">Generator schodów · 2026 · Blender · Geometry Nodes</div>
 <div class="t" style="left:4.2606%;top:71.1686%;width:91.5081%;height:1.8081%;font-size:1.3909cqw;font-weight:400;color:#0b4a55;text-align:left;line-height:1.5;letter-spacing:0.025em;">Generator Geometry Nodes, który buduje kompletne schody z płaskich ścian narysowanych w rzucie. Ściany oznaczone jako biegi stają się ciągami stopni, a ściany oznaczone jako spoczniki – spocznikami, więc schody proste, w kształcie L, U i kręcone powstają z tej samej prostej siatki. Całkowita wysokość i liczba stopni to wejścia, każda podstopnica ma tę samą wysokość, a konstrukcja może być pełną płytą z okładziną kamienną albo otwartą ramą stalową z belkami, słupkami i centralną kolumną.</div>
 <div class="t" style="left:79.7950%;top:73.3458%;width:15.9590%;height:5.1624%;font-size:1.0981cqw;font-weight:400;color:#0b4a55;text-align:left;line-height:1.5;letter-spacing:0.025em;">Rysujesz tylko schody w rzucie; generator wyznacza kierunek wejścia, dzieli biegi na stopnie i podnosi każdy spocznik na właściwy poziom. Zmiana liczby stopni lub całkowitej wysokości przekształca całe schody, a przełączenie z konstrukcji pełnej na otwartą odbudowuje je z belkami i słupkami. Materiały i UV są od razu gotowe do renderingu.</div>
-<div class="m" style="left:4.2606%;top:73.3458%;width:73.2064%;height:9.5680%;"><video src="https://witkowskimich.my.canva.site/_assets/video/60fada9b1295f30dd34a63f9e84727c3.mp4" poster="https://witkowskimich.my.canva.site/_assets/video/22e4169ca299dbb2462f7b585b0083df.jpg" autoplay muted loop playsinline preload="metadata" style="left:-0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></video></div>
+<div class="m" style="left:4.2606%;top:73.3458%;width:73.2064%;height:9.5680%;"><video src="https://witkowskimich.my.canva.site/_assets/video/60fada9b1295f30dd34a63f9e84727c3.mp4" poster="https://witkowskimich.my.canva.site/_assets/video/22e4169ca299dbb2462f7b585b0083df.jpg" controls muted loop playsinline preload="metadata" style="left:-0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></video></div>
 <div class="m" style="left:4.2606%;top:83.5856%;width:44.6559%;height:14.7559%;"><img src="https://witkowskimich.my.canva.site/_assets/media/c365ffb87b1b1a074372160a0455b1ec.png" alt="OC_Generator_Schodow modifier parameters: type and direction, dimensions, construction, open-riser beams" loading="lazy" decoding="async" style="left:0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></div>
 <div class="m" style="left:51.1127%;top:83.5856%;width:44.6559%;height:10.9934%;"><img src="https://witkowskimich.my.canva.site/_assets/media/070b942679d7039dbb1c17c8f4417e96.png" alt="OC_Generator_Schodow parameters: step cladding, materials, UV and shading" loading="lazy" decoding="async" style="left:0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></div>
 </section>
 <section class="sec" style="aspect-ratio:1366.0/3566;background:#8cc8f6">
-<div class="m" style="left:4.2606%;top:6.6181%;width:73.2064%;height:13.4156%;"><video src="https://witkowskimich.my.canva.site/_assets/video/fd7839a7c971280675a965eb6f3ba7f6.mp4" poster="https://witkowskimich.my.canva.site/_assets/video/f479f1866792254982bfc0ae8550268c.jpg" autoplay muted loop playsinline preload="metadata" style="left:0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></video></div>
-<div class="m" style="left:4.2606%;top:26.5283%;width:73.2064%;height:13.9989%;"><video src="https://witkowskimich.my.canva.site/_assets/video/94f77c966acb770c23ecc0918842ddbf.mp4" poster="https://witkowskimich.my.canva.site/_assets/video/34b96f626c6f0352f334c6506e31b23c.jpg" autoplay muted loop playsinline preload="metadata" style="left:0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></video></div>
-<div class="m" style="left:4.2606%;top:41.1946%;width:73.2064%;height:13.2754%;"><video src="https://witkowskimich.my.canva.site/_assets/video/12e73b8a8fc23cdb1bafb001249efb3b.mp4" poster="https://witkowskimich.my.canva.site/_assets/video/1156880a00f280311ea267c9b64099ca.jpg" autoplay muted loop playsinline preload="metadata" style="left:0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></video></div>
-<div class="m" style="left:4.2606%;top:61.7499%;width:73.2064%;height:13.8278%;"><video src="https://witkowskimich.my.canva.site/_assets/video/d2bf7f6fcf6fe60662df6ff994315dac.mp4" poster="https://witkowskimich.my.canva.site/_assets/video/8128e79529b6665ff1a34da57a2f15a1.jpg" autoplay muted loop playsinline preload="metadata" style="left:0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></video></div>
-<div class="m" style="left:4.2606%;top:80.4823%;width:73.2064%;height:16.7190%;"><video src="https://witkowskimich.my.canva.site/_assets/video/2d3b092ffc9069e21df02321b11a9431.mp4" poster="https://witkowskimich.my.canva.site/_assets/video/e855aa52e8af26ff6e9d5caf67e6c1eb.jpg" autoplay muted loop playsinline preload="metadata" style="left:0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></video></div>
+<div class="m" style="left:4.2606%;top:6.6181%;width:73.2064%;height:13.4156%;"><video src="https://witkowskimich.my.canva.site/_assets/video/fd7839a7c971280675a965eb6f3ba7f6.mp4" poster="https://witkowskimich.my.canva.site/_assets/video/f479f1866792254982bfc0ae8550268c.jpg" controls muted loop playsinline preload="metadata" style="left:0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></video></div>
+<div class="m" style="left:4.2606%;top:26.5283%;width:73.2064%;height:13.9989%;"><video src="https://witkowskimich.my.canva.site/_assets/video/94f77c966acb770c23ecc0918842ddbf.mp4" poster="https://witkowskimich.my.canva.site/_assets/video/34b96f626c6f0352f334c6506e31b23c.jpg" controls muted loop playsinline preload="metadata" style="left:0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></video></div>
+<div class="m" style="left:4.2606%;top:41.1946%;width:73.2064%;height:13.2754%;"><video src="https://witkowskimich.my.canva.site/_assets/video/12e73b8a8fc23cdb1bafb001249efb3b.mp4" poster="https://witkowskimich.my.canva.site/_assets/video/1156880a00f280311ea267c9b64099ca.jpg" controls muted loop playsinline preload="metadata" style="left:0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></video></div>
+<div class="m" style="left:4.2606%;top:61.7499%;width:73.2064%;height:13.8278%;"><video src="https://witkowskimich.my.canva.site/_assets/video/d2bf7f6fcf6fe60662df6ff994315dac.mp4" poster="https://witkowskimich.my.canva.site/_assets/video/8128e79529b6665ff1a34da57a2f15a1.jpg" controls muted loop playsinline preload="metadata" style="left:0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></video></div>
+<div class="m" style="left:4.2606%;top:80.4823%;width:73.2064%;height:16.7190%;"><video src="https://witkowskimich.my.canva.site/_assets/video/2d3b092ffc9069e21df02321b11a9431.mp4" poster="https://witkowskimich.my.canva.site/_assets/video/e855aa52e8af26ff6e9d5caf67e6c1eb.jpg" controls muted loop playsinline preload="metadata" style="left:0.0000%;top:0.0000%;width:100.0000%;height:100.0000%;"></video></div>
 <div class="t" style="left:4.2606%;top:2.6921%;width:91.5081%;height:2.9809%;font-size:1.3909cqw;font-weight:400;color:#0b4a55;text-align:left;line-height:1.5;letter-spacing:0.025em;">Narzędzie do generowania przebiegu i konstrukcji zjeżdżalni. Dane wejściowe obejmują listę elementów zjeżdżalni, obrót każdego elementu względem poprzedniego, położenie słupów podporowych oraz inne parametry określające wymiary elementów konstrukcyjnych. Algorytm składa zjeżdżalnię w dokładny model 3D i oblicza parametry wynikowe, takie jak procentowe nachylenie zjeżdżalni i inne kluczowe wskaźniki.</div>
 <div class="t" style="left:4.2606%;top:1.5311%;width:91.5081%;height:0.7228%;font-size:1.6105cqw;font-weight:700;color:#0b4a55;text-align:left;line-height:1.1;letter-spacing:0.025em;">Generator zjeżdżalni · 2023–2025 · Rhinoceros / Grasshopper</div>
 <div class="t" style="left:4.2606%;top:22.2658%;width:91.5081%;height:0.7228%;font-size:1.6105cqw;font-weight:700;color:#0b4a55;text-align:left;line-height:1.1;letter-spacing:0.025em;">Generator wnętrz · 2025 · Blender · Geometry Nodes</div>
