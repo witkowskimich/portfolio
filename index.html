@@ -108,8 +108,8 @@
   // realistyczne bańki wyrenderowane w Blenderze (odbicia, błonka z kolorowym szumem, odblaski)
   const SPR = [], SPRB = [];
   const base = (document.currentScript && document.currentScript.dataset.base) || 'sprites/';
-  for (let i = 0; i < 1; i++) {
-    const im = new Image(); im.src = base + 'bubble.webp';
+  for (let i = 0; i < 4; i++) {
+    const im = new Image(); im.src = base + 'babel' + i + '.webp';
     im.onload = () => {
       SPR[i] = im;
       // wersja rozmyta (tło) przygotowana raz
@@ -138,7 +138,7 @@
     const r = (z < .4 ? 10 + Math.random() * 18 : 18 + Math.pow(Math.random(), 1.8) * 52) * u;
     return { z, x: r + Math.random() * Math.max(1, W - 2 * r), y: r + Math.random() * Math.max(1, H - 2 * r),
       r, vx: (Math.random() - .5) * 0.6 * u, vy: (Math.random() - .5) * 0.6 * u, dying: false,
-      v: 0, rot: (Math.random() - .5) * .5, seed: Math.random(), ph: Math.random() * 6.283, wob: .7 + Math.random() * .7,
+      v: Math.floor(Math.random() * 4), rot: (Math.random() - .5) * .5, seed: Math.random(), ph: Math.random() * 6.283, wob: .7 + Math.random() * .7,
       spin: (Math.random() - .5) * .25, life: 18 + Math.random() * 30, age: 0, pop: init ? 1 : 0, sq: 0, sqv: 0 };
   }
   // ruch powietrza: wolno zmieniające się pole prądów
