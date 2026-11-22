@@ -916,8 +916,17 @@
     document.querySelector('footer').hidden = !m || m.id === 'p-';
     window.scrollTo(0, 0);
   }
+  // obrazek, który się nie wczytał (błąd sieci/CDN przy pierwszym wejściu), ponawia pobieranie zamiast czekać na odświeżenie
+  function retry(i) { const n = +(i.dataset.retry || 0); if (n >= 4) return; i.dataset.retry = n + 1;
+    const s = i.getAttribute('src'); if (!s) return; i.loading = 'eager';
+    setTimeout(() => { i.src = s.replace(/([?&])r=\d+&?/, '$1').replace(/[?&]$/, '') + (s.includes('?') ? '&' : '?') + 'r=' + (n + 1); }, 400 * (n + 1)); }
+  document.addEventListener('error', e => { if (e.target.tagName === 'IMG' && e.target.closest('main.page, #hero, .hero')) retry(e.target); }, true);
+  function watchdog(m) { if (!m) return; [3000, 8000].forEach(d => setTimeout(() => { if (m.hidden) return;
+    m.querySelectorAll('img').forEach(i => { if (i.getAttribute('src') && i.complete && !i.naturalWidth) retry(i); }); }, d)); }
+  addEventListener('hashchange', () => watchdog(document.querySelector('main.page:not([hidden])')));
   addEventListener('hashchange', route);
   route();
+  watchdog(document.querySelector('main.page:not([hidden])'));
 })();
 </script>
 </body>
