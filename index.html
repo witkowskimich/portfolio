@@ -140,7 +140,7 @@
         sc.g = texture2D(scene, base / res).g;
         sc.b = texture2D(scene, (base + d * ca) / res).b;
         // przy krawędzi mniej światła przechodzi (fresnel) -> tło widziane przez bańkę ciemnieje
-        sc *= 1. - 0.28 * smoothstep(.80, 1.0, r);
+
         float edgeAA = 1. - smoothstep(1. - 1.5 / b.z, 1., r);
         col = vec4(sc, 1.) * edgeAA * (1. - bl);
       }
