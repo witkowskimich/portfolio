@@ -894,17 +894,25 @@
 (() => {
   const nav = document.getElementById('nav');
   document.getElementById('burger').onclick = () => nav.classList.toggle('open');
-  // obrazki podstrony ładowane od razu (nie dopiero przy przewijaniu)
-  function eager(m) { if (m && !m.dataset.eager) { m.dataset.eager = 1; m.querySelectorAll('img[loading="lazy"]').forEach(i => { i.loading = 'eager'; });
+  // otwarta podstrona: wszystkie jej obrazki od razu, pierwsze z wysokim priorytetem
+  function eager(m) { if (!m) return;
+    m.querySelectorAll('img').forEach((i, k) => {
+      if (i.dataset.src) { i.src = i.dataset.src; delete i.dataset.src; }
+      i.fetchPriority = k < 6 ? 'high' : 'auto'; if (i.loading === 'lazy') i.loading = 'eager'; });
     // filmy podstrony: miniatury i nagłówki dopiero teraz (nie przy starcie strony, żeby nie spowalniać baniek)
-    m.querySelectorAll('video[data-poster]').forEach(v => { v.poster = v.dataset.poster; v.removeAttribute('data-poster'); v.preload = 'metadata'; }); } }
-  // najechanie na pozycję menu = obrazki tej podstrony zaczynają się ładować w tle
-  document.querySelectorAll('a[href^="#/"]').forEach(a => { const go = () => eager(document.getElementById('p-' + a.getAttribute('href').slice(2))); a.addEventListener('mouseenter', go); a.addEventListener('focus', go); a.addEventListener('touchstart', go, { passive: true }); });
+    m.querySelectorAll('video[data-poster]').forEach(v => { v.poster = v.dataset.poster; v.removeAttribute('data-poster'); v.preload = 'metadata'; }); }
+  // ukryte podstrony: niedokończone pobieranie obrazków jest przerywane, żeby nie blokowało otwartej strony
+  function park(m) { m.querySelectorAll('img').forEach(i => { const s = i.getAttribute('src');
+    if (s && !i.complete && !i.closest('#hero')) { i.dataset.src = s; i.removeAttribute('src'); } }); }
+  // najechanie na pozycję menu = w tle tylko kilka pierwszych obrazków tej podstrony (niski priorytet)
+  function peek(m) { if (!m || !m.hidden || m.dataset.peek) return; m.dataset.peek = 1;
+    [...m.querySelectorAll('img[loading="lazy"]')].slice(0, 3).forEach(i => { i.fetchPriority = 'low'; i.loading = 'eager'; }); }
+  document.querySelectorAll('a[href^="#/"]').forEach(a => { const go = () => peek(document.getElementById('p-' + a.getAttribute('href').slice(2))); a.addEventListener('mouseenter', go); a.addEventListener('focus', go); a.addEventListener('touchstart', go, { passive: true }); });
   function route() {
     const r = (location.hash.replace(/^#\/?/, '') || '').split('?')[0];
     let found = false;
     document.querySelectorAll('main.page').forEach(m => {
-      const on = m.id === 'p-' + r; m.hidden = !on; if (on) found = true;
+      const on = m.id === 'p-' + r; m.hidden = !on; if (on) found = true; else park(m);
       m.querySelectorAll('video').forEach(v => { if (on) { v.play().catch(() => {}); } else v.pause(); });
     });
     if (!found) document.getElementById('p-').hidden = false;
