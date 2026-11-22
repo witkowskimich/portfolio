@@ -108,13 +108,13 @@
   // realistyczne bańki wyrenderowane w Blenderze (odbicia, błonka z kolorowym szumem, odblaski)
   const SPR = [], SPRB = [];
   const base = (document.currentScript && document.currentScript.dataset.base) || 'sprites/';
-  for (let i = 0; i < 6; i++) {
-    const im = new Image(); im.src = base + 'b' + i + '.webp';
+  for (let i = 0; i < 1; i++) {
+    const im = new Image(); im.src = base + 'clean.webp';
     im.onload = () => {
       SPR[i] = im;
       // wersja rozmyta (tło) przygotowana raz
       const c = document.createElement('canvas'); c.width = c.height = 256;
-      const x = c.getContext('2d'); x.filter = 'blur(7px)'; x.drawImage(im, 24, 24, 208, 208); SPRB[i] = c;
+      const x = c.getContext('2d'); x.filter = 'blur(2.5px)'; x.drawImage(im, 24, 24, 208, 208); SPRB[i] = c;
     };
   }
   // błysk-gwiazdka (glare)
@@ -138,7 +138,7 @@
     const r = (z < .4 ? 10 + Math.random() * 18 : 18 + Math.pow(Math.random(), 1.8) * 52) * u;
     return { z, x: r + Math.random() * Math.max(1, W - 2 * r), y: r + Math.random() * Math.max(1, H - 2 * r),
       r, vx: (Math.random() - .5) * 0.6 * u, vy: (Math.random() - .5) * 0.6 * u, dying: false,
-      v: Math.floor(Math.random() * 6), rot: Math.random() * 6.283, seed: Math.random(), ph: Math.random() * 6.283, wob: .7 + Math.random() * .7,
+      v: 0, rot: (Math.random() - .5) * .5, seed: Math.random(), ph: Math.random() * 6.283, wob: .7 + Math.random() * .7,
       spin: (Math.random() - .5) * .25, life: 18 + Math.random() * 30, age: 0, pop: init ? 1 : 0, sq: 0, sqv: 0 };
   }
   // ruch powietrza: wolno zmieniające się pole prądów
@@ -201,14 +201,14 @@
       const im = b.z < .4 ? SPRB[b.v] : SPR[b.v]; if (!im) continue;
       const w = Math.sin(t * .0017 * b.wob + b.ph) * .02 + b.sq;
       const d = b.r * 2 * (b.z < .4 ? 256 / 208 : 1);
-      ctx.save(); ctx.translate(b.x, b.y); ctx.rotate(b.rot + tt * b.spin * .15); ctx.scale(1 + w, 1 - w);
-      ctx.globalAlpha = Math.max(0, b.pop) * (b.z < .4 ? .55 : .9);
+      ctx.save(); ctx.translate(b.x, b.y); ctx.rotate(b.rot); ctx.scale(1 + w, 1 - w);
+      ctx.globalAlpha = Math.max(0, b.pop) * (b.z < .4 ? .75 : 1);
       ctx.drawImage(im, -d / 2, -d / 2, d, d);
       ctx.restore();
       if (b.z > .7) {   // migoczący błysk na krawędzi
         const tw = Math.max(0, Math.sin(tt * (1.1 + b.wob) + b.ph * 3)) ** 3;
-        const sx = b.x + b.r * .62, sy = b.y - b.r * .55, ss = b.r * (.55 + .35 * tw);
-        ctx.globalAlpha = Math.max(0, b.pop) * (.35 + .65 * tw); ctx.globalCompositeOperation = 'lighter';
+        const sx = b.x + b.r * .64, sy = b.y - b.r * .69, ss = b.r * (.25 + .25 * tw);
+        ctx.globalAlpha = Math.max(0, b.pop) * (.2 + .5 * tw); ctx.globalCompositeOperation = 'lighter';
         ctx.drawImage(STAR, sx - ss / 2, sy - ss / 2, ss, ss);
         ctx.globalCompositeOperation = 'source-over';
       }
